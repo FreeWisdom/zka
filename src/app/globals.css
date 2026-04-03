@@ -1,0 +1,247 @@
+:root {
+  color-scheme: light;
+  --bg: #f4efe7;
+  --panel: rgba(255, 252, 247, 0.88);
+  --panel-border: rgba(65, 57, 47, 0.12);
+  --text: #221d17;
+  --muted: #6a5d4f;
+  --accent: #ca5d2f;
+  --accent-strong: #a53f19;
+  --success: #146c43;
+  --warning: #b56b0f;
+  --danger: #a0212c;
+  --shadow: 0 24px 80px rgba(64, 46, 28, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(202, 93, 47, 0.18), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(36, 110, 80, 0.16), transparent 24%),
+    linear-gradient(180deg, #f8f2ea 0%, var(--bg) 100%);
+  font-family: "Trebuchet MS", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+code {
+  font-family: "Consolas", "SFMono-Regular", monospace;
+}
+
+.redeem-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 48px 0 72px;
+}
+
+.redeem-layout {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  align-items: start;
+}
+
+.redeem-card,
+.redeem-side-card,
+.redeem-result-card,
+.redeem-status-card {
+  border: 1px solid var(--panel-border);
+  border-radius: 28px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+}
+
+.redeem-card,
+.redeem-result-card {
+  padding: 28px;
+}
+
+.redeem-side-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.redeem-side-card {
+  padding: 22px;
+}
+
+.redeem-card-header h1,
+.redeem-result-card h1,
+.redeem-side-card h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 2vw, 2.6rem);
+  line-height: 1.05;
+}
+
+.redeem-card-header p,
+.redeem-result-card p,
+.redeem-side-card p,
+.redeem-side-card li {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.redeem-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.redeem-kicker::before {
+  content: "";
+  display: inline-block;
+  width: 38px;
+  height: 1px;
+  background: currentColor;
+}
+
+.redeem-field-group {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.redeem-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.redeem-input,
+.redeem-textarea {
+  width: 100%;
+  border: 1px solid rgba(65, 57, 47, 0.18);
+  border-radius: 18px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--text);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.redeem-input:focus,
+.redeem-textarea:focus {
+  outline: none;
+  border-color: rgba(202, 93, 47, 0.6);
+  transform: translateY(-1px);
+}
+
+.redeem-textarea {
+  resize: vertical;
+  min-height: 180px;
+}
+
+.redeem-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.redeem-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 140px;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 22px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: #fff6ee;
+  cursor: pointer;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.redeem-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.redeem-button-secondary {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text);
+  border: 1px solid rgba(65, 57, 47, 0.18);
+}
+
+.redeem-status-card {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 18px 20px;
+}
+
+.redeem-feedback {
+  margin: 18px 0 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.redeem-error {
+  color: var(--danger);
+}
+
+.redeem-success {
+  color: var(--success);
+}
+
+.redeem-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+  align-items: center;
+}
+
+.redeem-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: rgba(20, 108, 67, 0.12);
+  color: var(--success);
+  font-weight: 700;
+}
+
+.redeem-result-detail {
+  margin-top: 20px;
+}
+
+@media (max-width: 900px) {
+  .redeem-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .redeem-shell {
+    width: min(100% - 20px, 1180px);
+    padding: 24px 0 48px;
+  }
+
+  .redeem-card,
+  .redeem-result-card {
+    padding: 22px;
+  }
+}

@@ -1,0 +1,8 @@
+/.history
+.next
+coverage
+node_modules
+.env
+data/*.db
+data/*.db-journal
+.preview-*.log
