@@ -2,12 +2,14 @@ import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { getDatabasePath } from '@/lib/config/env';
+
 const globalForSqlite = globalThis as typeof globalThis & {
   sqlite?: Database.Database;
 };
 
 function resolveDatabasePath() {
-  const configuredPath = process.env.DATABASE_PATH ?? './data/platform-b.db';
+  const configuredPath = getDatabasePath();
   const normalizedRelativePath = configuredPath.replace(/^\.?[\\/]/, '');
 
   return path.isAbsolute(configuredPath)
