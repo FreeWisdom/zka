@@ -21,12 +21,27 @@ export type RedeemRequestStatus =
   | 'failed_retryable'
   | 'failed_final';
 
+export type UpstreamLookupResult = {
+  success: boolean;
+  codeMasked: string;
+  message: string;
+  giftName?: string;
+  useStatus?: number;
+  statusHint?: string;
+  accountEmail?: string;
+  completedAt?: string;
+  inCooldown?: boolean;
+  cooldownRemaining?: number;
+};
+
 export type CheckCodeResult = {
   code: string;
   status: RedeemCodeStatus;
   canSubmit: boolean;
   productName: string;
   message: string;
+  upstreamCodeMasked: string;
+  upstreamLookup: UpstreamLookupResult;
 };
 
 export type SubmitRedeemInput = {
@@ -67,4 +82,19 @@ export type SessionInfoSnapshot = {
   planType?: string;
   email?: string;
   errorMessage?: string;
+};
+
+export type PairRedeemCodeInput = {
+  upstreamCode: string;
+  productName?: string;
+  productSlug?: string;
+  productDescription?: string;
+};
+
+export type PairRedeemCodeResult = {
+  code: string;
+  created: boolean;
+  productName: string;
+  upstreamCodeMasked: string;
+  upstreamLookup: UpstreamLookupResult;
 };

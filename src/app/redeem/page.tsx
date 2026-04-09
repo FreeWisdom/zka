@@ -19,7 +19,10 @@ export default function RedeemPage() {
 
           <div className="redeem-side-card">
             <span className="redeem-kicker">当前约束</span>
-            <p>一期不展示上游卡密，不开放登录体系，所有查询都围绕兑换码和 requestNo 展开。</p>
+            <p>
+              一期不展示完整卡密，不开放登录体系，所有查询都围绕兑换码和 requestNo
+              展开。
+            </p>
           </div>
         </aside>
       </section>

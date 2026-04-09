@@ -35,7 +35,7 @@ describe('submitRedeem', () => {
     expect(result).toMatchObject({
       status: 'success',
       retryable: false,
-      message: '兑换成功',
+      message: '\u5151\u6362\u6210\u529f',
     });
 
     const db = getDatabase();
@@ -117,7 +117,7 @@ describe('submitRedeem', () => {
     expect(result).toMatchObject({
       status: 'failed_final',
       retryable: false,
-      message: '该账号当前plan为plus 无法进行充值',
+      message: '\u8be5\u8d26\u53f7\u5f53\u524d plan \u4e3a plus\uff0c\u65e0\u6cd5\u8fdb\u884c\u5145\u503c',
     });
 
     const db = getDatabase();
@@ -155,7 +155,8 @@ describe('submitRedeem', () => {
     expect(result).toMatchObject({
       status: 'failed_retryable',
       retryable: true,
-      message: '礼物库存不足，请等待15分钟后再试或联系管理员补货',
+      message:
+        '\u793c\u7269\u5e93\u5b58\u4e0d\u8db3\uff0c\u8bf7\u7b49\u5f8515\u5206\u949f\u540e\u518d\u8bd5\u6216\u8054\u7cfb\u7ba1\u7406\u5458\u8865\u8d27',
     });
   });
 
@@ -168,7 +169,7 @@ describe('submitRedeem', () => {
     expect(result).toMatchObject({
       status: 'processing',
       retryable: false,
-      message: '上游处理中，请稍后刷新',
+      message: '\u5904\u7406\u4e2d\uff0c\u8bf7\u7a0d\u540e\u5237\u65b0',
     });
   });
 
@@ -189,7 +190,7 @@ describe('submitRedeem', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       success: true,
-      message: '兑换请求已提交',
+      message: '\u5151\u6362\u8bf7\u6c42\u5df2\u63d0\u4ea4',
       data: {
         status: 'success',
         retryable: false,
@@ -214,7 +215,7 @@ describe('submitRedeem', () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       success: false,
-      message: 'session_info 不能为空',
+      message: 'session_info \u4e0d\u80fd\u4e3a\u7a7a',
     });
   });
 });

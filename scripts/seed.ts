@@ -1,14 +1,7 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
-import { getDatabase } from '../src/lib/storage/database';
-
-function encodeUpstreamCode(value: string) {
-  return Buffer.from(value, 'utf8').toString('base64');
-}
-
-function hashUpstreamCode(value: string) {
-  return createHash('sha256').update(value).digest('hex');
-}
+import { encodeUpstreamCode, hashUpstreamCode } from '@/lib/redeem/upstream-code';
+import { getDatabase } from '@/lib/storage/database';
 
 function insertFixtureCode(input: {
   productId: string;
@@ -72,10 +65,15 @@ function insertFixtureCode(input: {
   );
 }
 
-function main() {
+async function main() {
   const db = getDatabase();
   const now = new Date().toISOString();
-  const productId = randomUUID();
+  const product = {
+    id: randomUUID(),
+    name: 'ChatGPT Plus 月卡',
+    slug: 'chatgpt-plus-1m',
+    description: '平台 B 测试商品',
+  };
 
   db.exec(`
     DELETE FROM redeem_requests;
@@ -89,14 +87,7 @@ function main() {
       INSERT INTO products (id, name, slug, description, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `,
-  ).run(
-    productId,
-    'ChatGPT Plus 月卡',
-    'chatgpt-plus-1m',
-    '平台 B 本地调试示例商品',
-    now,
-    now,
-  );
+  ).run(product.id, product.name, product.slug, product.description, now, now);
 
   [
     {
@@ -131,12 +122,11 @@ function main() {
     },
   ].forEach((fixture) =>
     insertFixtureCode({
+      productId: product.id,
       ...fixture,
-      productId,
     }),
   );
 
-  console.log('Seed complete.');
   console.log('Available demo codes:');
   console.log('- GIFT-VALID-0001 => success');
   console.log('- GIFT-RETRY-0001 => retryable failure');
@@ -145,4 +135,4 @@ function main() {
   console.log('- GIFT-BROKEN-0001 => invalid upstream');
 }
 
-main();
+void main();

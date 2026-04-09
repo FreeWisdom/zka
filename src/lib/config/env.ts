@@ -29,7 +29,7 @@ export function getServerEnv() {
     alipayPrivateKey,
     alipayPublicKey,
     alipayNotifyUrl,
-    upstreamConfigured: Boolean(upstreamBaseUrl && upstreamApiKey),
+    upstreamConfigured: Boolean(upstreamBaseUrl),
     alipayConfigured: Boolean(
       alipayAppId && alipayPrivateKey && alipayPublicKey && alipayNotifyUrl,
     ),

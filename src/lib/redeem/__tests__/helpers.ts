@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
 import { randomUUID } from 'node:crypto';
 
+import { encodeUpstreamCode, hashUpstreamCode } from '@/lib/redeem/upstream-code';
 import { getDatabase } from '@/lib/storage/database';
 
 type Product = {
@@ -9,14 +9,6 @@ type Product = {
   slug: string;
   description: string;
 };
-
-function encodeUpstreamCode(value: string) {
-  return Buffer.from(value, 'utf8').toString('base64');
-}
-
-function hashUpstreamCode(value: string) {
-  return createHash('sha256').update(value).digest('hex');
-}
 
 async function createFixtureCode(
   product: Product,

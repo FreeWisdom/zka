@@ -12,7 +12,7 @@ type RedeemStatusRow = {
 function mapStatusHint(row: RedeemStatusRow) {
   switch (row.status) {
     case 'processing':
-      return '上游处理中，请稍后刷新';
+      return '处理中，请稍后刷新';
     case 'success':
       return '兑换成功，请登录账号查看结果';
     case 'failed_retryable':

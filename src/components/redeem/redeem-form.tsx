@@ -9,6 +9,10 @@ type LookupState = {
   canSubmit: boolean;
   productName: string;
   message: string;
+  detailProductName: string | null;
+  detailStatus: string;
+  detailCompletedAt: string | null;
+  detailAccountEmail: string | null;
 };
 
 export function RedeemForm() {
@@ -121,6 +125,14 @@ export function RedeemForm() {
           <span>
             当前状态：<code>{lookupState.status}</code>
           </span>
+          {lookupState.detailProductName ? <span>商品：{lookupState.detailProductName}</span> : null}
+          <span>状态：{lookupState.detailStatus}</span>
+          {lookupState.detailCompletedAt ? (
+            <span>完成时间：{lookupState.detailCompletedAt}</span>
+          ) : null}
+          {lookupState.detailAccountEmail ? (
+            <span>账号邮箱：{lookupState.detailAccountEmail}</span>
+          ) : null}
         </div>
       ) : null}
 

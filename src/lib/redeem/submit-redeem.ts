@@ -65,7 +65,7 @@ function mapRedeemMetadata(input: {
 
   return {
     status: mapRedeemCodeStatus(input.status),
-    submittedAt: submittedAt,
+    submittedAt,
     redeemedAt: input.status === 'success' ? input.completedAt ?? submittedAt : null,
     lastErrorMessage:
       input.status === 'success' || input.status === 'processing' ? null : input.message,
@@ -122,9 +122,10 @@ export async function submitRedeem(
   const requestNo = createRequestNo();
   const requestId = randomUUID();
   const sessionInfo = analyzeSessionInfo(input.sessionInfo);
-  const upstreamResult = activateUpstreamCode({
+  const upstreamResult = await activateUpstreamCode({
     upstreamCodeEncrypted: redeemRow.upstreamCodeEncrypted,
     sessionInfo,
+    sessionInfoRaw: input.sessionInfo,
   });
   const now = new Date().toISOString();
   const redeemMetadata = mapRedeemMetadata({
@@ -173,9 +174,7 @@ export async function submitRedeem(
       JSON.stringify(upstreamResult.raw),
       upstreamResult.state === 'success' ? null : upstreamResult.message,
       now,
-      upstreamResult.state === 'processing'
-        ? null
-        : upstreamResult.completedAt ?? now,
+      upstreamResult.state === 'processing' ? null : upstreamResult.completedAt ?? now,
       now,
       now,
     );

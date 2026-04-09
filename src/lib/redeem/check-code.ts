@@ -1,6 +1,7 @@
 import { getDatabase } from '@/lib/storage/database';
 
 import { RedeemCodeLookupError } from './errors';
+import { lookupBoundUpstreamCode } from './upstream-adapter';
 import type {
   CheckCodeResult,
   RedeemCodeStatus,
@@ -12,6 +13,7 @@ type RedeemCodeLookupRow = {
   redeemStatus: RedeemCodeStatus;
   upstreamStatus: UpstreamCodeStatus;
   productName: string;
+  upstreamCodeEncrypted: string;
 };
 
 function mapCheckCodeState(
@@ -34,7 +36,7 @@ function mapCheckCodeState(
   if (row.redeemStatus === 'submitted' || row.upstreamStatus === 'submitted') {
     return {
       canSubmit: false,
-      message: '兑换申请处理中',
+      message: '兑换请求处理中',
     };
   }
 
@@ -55,7 +57,7 @@ function mapCheckCodeState(
   if (row.upstreamStatus === 'invalid') {
     return {
       canSubmit: false,
-      message: '绑定卡密不可用，请联系管理员',
+      message: '兑换码当前不可用，请联系管理员',
     };
   }
 
@@ -78,7 +80,8 @@ export async function checkRedeemCode(code: string): Promise<CheckCodeResult> {
           rc.code AS code,
           rc.status AS redeemStatus,
           uc.status AS upstreamStatus,
-          p.name AS productName
+          p.name AS productName,
+          uc.upstream_code_encrypted AS upstreamCodeEncrypted
         FROM redeem_codes rc
         INNER JOIN upstream_codes uc ON uc.id = rc.upstream_code_id
         INNER JOIN products p ON p.id = rc.product_id
@@ -92,11 +95,16 @@ export async function checkRedeemCode(code: string): Promise<CheckCodeResult> {
   }
 
   const mappedState = mapCheckCodeState(row);
+  const upstreamLookup = await lookupBoundUpstreamCode({
+    upstreamCodeEncrypted: row.upstreamCodeEncrypted,
+  });
 
   return {
     code: row.code,
     status: row.redeemStatus,
     productName: row.productName,
+    upstreamCodeMasked: upstreamLookup.codeMasked,
+    upstreamLookup,
     ...mappedState,
   };
 }

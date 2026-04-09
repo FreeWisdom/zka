@@ -30,9 +30,7 @@ function maskEmail(email?: string) {
     return email;
   }
 
-  const visibleLocal = localPart.slice(0, 2);
-
-  return `${visibleLocal}***@${domain}`;
+  return `${localPart.slice(0, 2)}***@${domain}`;
 }
 
 function truncate(value: string, maxLength = 48) {
@@ -64,7 +62,7 @@ export function analyzeSessionInfo(sessionInfo: string): SessionInfoSnapshot {
     return {
       hash,
       masked: truncate(sessionInfo),
-      errorMessage: 'Session信息或账号异常 请复制全部内容重新提交',
+      errorMessage: 'Session 信息或账号异常，请复制完整内容重新提交',
     };
   }
 }

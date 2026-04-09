@@ -36,7 +36,7 @@ describe('getRedeemStatus', () => {
     expect(result).toMatchObject({
       requestNo: submission.requestNo,
       status: 'processing',
-      statusHint: '上游处理中，请稍后刷新',
+      statusHint: '\u5904\u7406\u4e2d\uff0c\u8bf7\u7a0d\u540e\u5237\u65b0',
       retryable: false,
     });
   });
@@ -52,7 +52,7 @@ describe('getRedeemStatus', () => {
     expect(result).toMatchObject({
       requestNo: submission.requestNo,
       status: 'success',
-      statusHint: '兑换成功，请登录账号查看结果',
+      statusHint: '\u5151\u6362\u6210\u529f\uff0c\u8bf7\u767b\u5f55\u8d26\u53f7\u67e5\u770b\u7ed3\u679c',
       retryable: false,
     });
   });
@@ -68,7 +68,7 @@ describe('getRedeemStatus', () => {
     expect(result).toMatchObject({
       requestNo: submission.requestNo,
       status: 'failed_retryable',
-      statusHint: '本次兑换失败，可稍后重试',
+      statusHint: '\u672c\u6b21\u5151\u6362\u5931\u8d25\uff0c\u53ef\u7a0d\u540e\u91cd\u8bd5',
       retryable: true,
     });
   });
@@ -80,9 +80,7 @@ describe('getRedeemStatus', () => {
     });
 
     const response = await GET(
-      new Request(
-        `http://localhost/api/redeem/status/${submission.requestNo}`,
-      ),
+      new Request(`http://localhost/api/redeem/status/${submission.requestNo}`),
       {
         params: Promise.resolve({ requestNo: submission.requestNo }),
       },
@@ -91,7 +89,7 @@ describe('getRedeemStatus', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       success: true,
-      message: '查询成功',
+      message: '\u67e5\u8be2\u6210\u529f',
       data: {
         requestNo: submission.requestNo,
         status: 'success',
@@ -101,7 +99,7 @@ describe('getRedeemStatus', () => {
 
   it('throws for an unknown request number', async () => {
     await expect(getRedeemStatus('REQ-MISSING-0001')).rejects.toThrow(
-      '兑换请求不存在',
+      '\u5151\u6362\u8bf7\u6c42\u4e0d\u5b58\u5728',
     );
   });
 });
