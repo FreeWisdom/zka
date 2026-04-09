@@ -52,6 +52,10 @@ code {
   padding: 48px 0 72px;
 }
 
+.admin-shell {
+  width: min(1440px, calc(100% - 32px));
+}
+
 .redeem-layout {
   display: grid;
   gap: 24px;
@@ -85,6 +89,7 @@ code {
 }
 
 .redeem-card-header h1,
+.redeem-card-header h2,
 .redeem-result-card h1,
 .redeem-side-card h2 {
   margin: 0;
@@ -230,9 +235,239 @@ code {
   margin-top: 20px;
 }
 
+.admin-stack {
+  display: grid;
+  gap: 24px;
+}
+
+.admin-layout {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 320px minmax(0, 1fr);
+  align-items: start;
+}
+
+.admin-form-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-checkbox {
+  display: inline-flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 18px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.admin-checkbox input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.admin-summary-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 24px;
+}
+
+.admin-summary-grid-compact {
+  margin-top: 20px;
+}
+
+.admin-summary-card {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid rgba(65, 57, 47, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.admin-summary-card strong {
+  font-size: 1.8rem;
+}
+
+.admin-summary-card span {
+  color: var(--muted);
+}
+
+.admin-table-wrap {
+  margin-top: 22px;
+  overflow-x: auto;
+}
+
+.admin-table-wrap-tall {
+  max-height: 760px;
+  overflow: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.admin-table-inventory {
+  min-width: 1080px;
+}
+
+.admin-table thead th {
+  position: sticky;
+  top: 0;
+  background: rgba(248, 242, 234, 0.96);
+  backdrop-filter: blur(8px);
+  z-index: 1;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid rgba(65, 57, 47, 0.12);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-table th {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-table td {
+  line-height: 1.6;
+}
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(202, 93, 47, 0.12);
+  color: var(--accent-strong);
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-side-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.admin-batch-panel {
+  position: sticky;
+  top: 24px;
+}
+
+.admin-batch-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  max-height: 760px;
+  overflow: auto;
+}
+
+.admin-batch-item {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid rgba(65, 57, 47, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.58);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.admin-batch-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(202, 93, 47, 0.36);
+}
+
+.admin-batch-item span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.admin-batch-item-active {
+  border-color: rgba(202, 93, 47, 0.56);
+  background: rgba(202, 93, 47, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(202, 93, 47, 0.16);
+}
+
+.admin-inventory-card {
+  min-height: 860px;
+}
+
+.admin-empty-state {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px dashed rgba(65, 57, 47, 0.18);
+  border-radius: 20px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.admin-side-list-item {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(65, 57, 47, 0.12);
+}
+
+.admin-side-list-item span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.admin-notes {
+  display: grid;
+  gap: 10px;
+  padding-left: 18px;
+}
+
+.admin-notes-card {
+  padding: 28px;
+}
+
 @media (max-width: 900px) {
   .redeem-layout {
     grid-template-columns: 1fr;
+  }
+
+  .admin-layout,
+  .admin-form-grid,
+  .admin-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell {
+    width: min(100% - 20px, 1440px);
+  }
+
+  .admin-batch-panel {
+    position: static;
+  }
+
+  .admin-batch-list,
+  .admin-table-wrap-tall {
+    max-height: none;
+  }
+
+  .admin-inventory-card {
+    min-height: 0;
   }
 
   .redeem-shell {

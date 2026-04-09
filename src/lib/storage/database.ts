@@ -48,9 +48,21 @@ function initializeDatabase(db: Database.Database) {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS inventory_batches (
+      id TEXT PRIMARY KEY,
+      batch_no TEXT NOT NULL UNIQUE,
+      supplier_name TEXT,
+      product_id TEXT NOT NULL,
+      remark TEXT,
+      quantity INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS upstream_codes (
       id TEXT PRIMARY KEY,
       product_id TEXT NOT NULL,
+      batch_id TEXT,
       upstream_code_encrypted TEXT NOT NULL,
       upstream_code_hash TEXT NOT NULL UNIQUE,
       status TEXT NOT NULL,
@@ -59,7 +71,8 @@ function initializeDatabase(db: Database.Database) {
       invalid_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+      FOREIGN KEY (batch_id) REFERENCES inventory_batches(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS redeem_codes (
@@ -111,6 +124,11 @@ function initializeDatabase(db: Database.Database) {
   `);
 
   ensureColumn(db, 'redeem_requests', 'last_checked_at', 'TEXT');
+  ensureColumn(db, 'upstream_codes', 'batch_id', 'TEXT');
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_upstream_codes_batch_created
+      ON upstream_codes (batch_id, created_at DESC);
+  `);
 }
 
 export function getDatabase() {

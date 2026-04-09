@@ -81,6 +81,7 @@ export async function resetDatabase() {
     DELETE FROM redeem_requests;
     DELETE FROM redeem_codes;
     DELETE FROM upstream_codes;
+    DELETE FROM inventory_batches;
     DELETE FROM products;
   `);
 }

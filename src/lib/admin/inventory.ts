@@ -1,0 +1,395 @@
+import { randomBytes, randomUUID } from 'node:crypto';
+
+import {
+  createRedeemCodeForUpstream,
+  ensureProduct,
+} from '@/lib/redeem/code-pairing';
+import {
+  decodeUpstreamCode,
+  encodeUpstreamCode,
+  hashUpstreamCode,
+  maskUpstreamCode,
+  normalizeUpstreamCode,
+} from '@/lib/redeem/upstream-code';
+import { getDatabase } from '@/lib/storage/database';
+
+const IMPORT_HEADER_TOKENS = new Set([
+  'card',
+  'cardcode',
+  'cdkey',
+  'code',
+  'codes',
+  'upstreamcode',
+  'upstreamcodes',
+  '上游卡密',
+  '卡密',
+]);
+
+type ExistingInventoryRow = {
+  upstreamCodeId: string;
+  productId: string;
+  upstreamCodeEncrypted: string;
+  redeemCode: string | null;
+};
+
+export class InventoryImportError extends Error {}
+
+export type ImportInventoryInput = {
+  codesText: string;
+  productName?: string;
+  productSlug?: string;
+  productDescription?: string;
+  supplierName?: string;
+  remark?: string;
+  generateRedeemCodes?: boolean;
+};
+
+export type ImportInventoryItem = {
+  upstreamCodeMasked: string;
+  redeemCode: string | null;
+  status: 'generated' | 'imported' | 'paired_existing' | 'existing';
+  message: string;
+};
+
+export type ImportInventoryResult = {
+  batchNo: string;
+  productName: string;
+  generateRedeemCodes: boolean;
+  receivedCount: number;
+  uniqueCount: number;
+  duplicateInputCount: number;
+  importedCount: number;
+  existingCount: number;
+  generatedCount: number;
+  items: ImportInventoryItem[];
+};
+
+export type InventoryListItem = {
+  batchNo: string | null;
+  productName: string;
+  upstreamCodeMasked: string;
+  upstreamStatus: string;
+  redeemCode: string | null;
+  redeemStatus: string | null;
+  createdAt: string;
+};
+
+export type BatchListItem = {
+  batchNo: string;
+  productName: string;
+  supplierName: string | null;
+  remark: string | null;
+  quantity: number;
+  generatedCount: number;
+  inStockCount: number;
+  createdAt: string;
+};
+
+type ListInventoryOptions = {
+  batchNo?: string | null;
+  limit?: number;
+};
+
+function normalizeImportToken(value: string) {
+  return value.trim().replace(/^['"]+|['"]+$/g, '');
+}
+
+function isHeaderToken(value: string) {
+  const normalized = value.toLowerCase().replace(/[\s_-]+/g, '');
+
+  return IMPORT_HEADER_TOKENS.has(normalized);
+}
+
+function parseCodesText(codesText: string) {
+  const rawTokens = codesText
+    .split(/[\n\r,;\t]+/)
+    .map(normalizeImportToken)
+    .filter(Boolean)
+    .filter((token) => !isHeaderToken(token));
+
+  const codes: string[] = [];
+  const seen = new Set<string>();
+  let duplicateInputCount = 0;
+
+  for (const token of rawTokens) {
+    const normalizedCode = normalizeUpstreamCode(token);
+
+    if (seen.has(normalizedCode)) {
+      duplicateInputCount += 1;
+      continue;
+    }
+
+    seen.add(normalizedCode);
+    codes.push(normalizedCode);
+  }
+
+  return {
+    receivedCount: rawTokens.length,
+    duplicateInputCount,
+    codes,
+  };
+}
+
+function createBatchNo() {
+  const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+  const suffix = randomBytes(2).toString('hex').toUpperCase();
+
+  return `BATCH-${timestamp}-${suffix}`;
+}
+
+function findExistingInventory(hash: string) {
+  const db = getDatabase();
+
+  return db
+    .prepare<
+      [string],
+      ExistingInventoryRow
+    >(
+      `
+        SELECT
+          uc.id AS upstreamCodeId,
+          uc.product_id AS productId,
+          uc.upstream_code_encrypted AS upstreamCodeEncrypted,
+          rc.code AS redeemCode
+        FROM upstream_codes uc
+        LEFT JOIN redeem_codes rc ON rc.upstream_code_id = uc.id
+        WHERE uc.upstream_code_hash = ?
+      `,
+    )
+    .get(hash);
+}
+
+export function importInventoryBatch(input: ImportInventoryInput): ImportInventoryResult {
+  const parsed = parseCodesText(input.codesText);
+
+  if (parsed.codes.length === 0) {
+    throw new InventoryImportError('未解析到可导入的上游卡密');
+  }
+
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const product = ensureProduct(input);
+  const batchId = randomUUID();
+  const batchNo = createBatchNo();
+  const generateRedeemCodes = input.generateRedeemCodes ?? true;
+  const result: ImportInventoryResult = {
+    batchNo,
+    productName: product.name,
+    generateRedeemCodes,
+    receivedCount: parsed.receivedCount,
+    uniqueCount: parsed.codes.length,
+    duplicateInputCount: parsed.duplicateInputCount,
+    importedCount: 0,
+    existingCount: 0,
+    generatedCount: 0,
+    items: [],
+  };
+
+  const supplierName = input.supplierName?.trim() || null;
+  const remark = input.remark?.trim() || null;
+
+  db.transaction(() => {
+    db.prepare(
+      `
+        INSERT INTO inventory_batches (
+          id,
+          batch_no,
+          supplier_name,
+          product_id,
+          remark,
+          quantity,
+          created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
+    ).run(batchId, batchNo, supplierName, product.id, remark, 0, now);
+
+    for (const upstreamCode of parsed.codes) {
+      const upstreamCodeHash = hashUpstreamCode(upstreamCode);
+      const existingInventory = findExistingInventory(upstreamCodeHash);
+
+      if (existingInventory?.redeemCode) {
+        result.existingCount += 1;
+        result.items.push({
+          upstreamCodeMasked: maskUpstreamCode(decodeUpstreamCode(existingInventory.upstreamCodeEncrypted)),
+          redeemCode: existingInventory.redeemCode,
+          status: 'existing',
+          message: '已存在绑定关系，沿用原内部卡密',
+        });
+        continue;
+      }
+
+      if (existingInventory && generateRedeemCodes) {
+        const redeemCode = createRedeemCodeForUpstream({
+          productId: existingInventory.productId,
+          upstreamCodeId: existingInventory.upstreamCodeId,
+          now,
+        });
+
+        db.prepare(
+          `
+            UPDATE upstream_codes
+            SET status = ?, updated_at = ?
+            WHERE id = ?
+          `,
+        ).run('bound', now, existingInventory.upstreamCodeId);
+
+        result.existingCount += 1;
+        result.generatedCount += 1;
+        result.items.push({
+          upstreamCodeMasked: maskUpstreamCode(upstreamCode),
+          redeemCode,
+          status: 'paired_existing',
+          message: '已为历史库存生成新的内部卡密',
+        });
+        continue;
+      }
+
+      if (existingInventory) {
+        result.existingCount += 1;
+        result.items.push({
+          upstreamCodeMasked: maskUpstreamCode(decodeUpstreamCode(existingInventory.upstreamCodeEncrypted)),
+          redeemCode: null,
+          status: 'existing',
+          message: '库存已存在，本次未重复导入',
+        });
+        continue;
+      }
+
+      const upstreamCodeId = randomUUID();
+      const upstreamStatus = generateRedeemCodes ? 'bound' : 'in_stock';
+
+      db.prepare(
+        `
+          INSERT INTO upstream_codes (
+            id,
+            product_id,
+            batch_id,
+            upstream_code_encrypted,
+            upstream_code_hash,
+            status,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run(
+        upstreamCodeId,
+        product.id,
+        batchId,
+        encodeUpstreamCode(upstreamCode),
+        upstreamCodeHash,
+        upstreamStatus,
+        now,
+        now,
+      );
+
+      let redeemCode: string | null = null;
+
+      if (generateRedeemCodes) {
+        redeemCode = createRedeemCodeForUpstream({
+          productId: product.id,
+          upstreamCodeId,
+          now,
+        });
+        result.generatedCount += 1;
+      }
+
+      result.importedCount += 1;
+      result.items.push({
+        upstreamCodeMasked: maskUpstreamCode(upstreamCode),
+        redeemCode,
+        status: redeemCode ? 'generated' : 'imported',
+        message: redeemCode ? '已导入并生成内部卡密' : '已导入库存，暂未生成内部卡密',
+      });
+    }
+
+    db.prepare(
+      `
+        UPDATE inventory_batches
+        SET quantity = ?
+        WHERE id = ?
+      `,
+    ).run(result.importedCount, batchId);
+  })();
+
+  return result;
+}
+
+export function listInventoryItems(
+  input: ListInventoryOptions = {},
+): InventoryListItem[] {
+  const db = getDatabase();
+  const batchNo = input.batchNo?.trim() || null;
+  const limit = input.limit ?? 500;
+  const rows = db
+    .prepare<
+      [string | null, string | null, number],
+      {
+        batchNo: string | null;
+        productName: string;
+        upstreamCodeEncrypted: string;
+        upstreamStatus: string;
+        redeemCode: string | null;
+        redeemStatus: string | null;
+        createdAt: string;
+      }
+    >(
+      `
+        SELECT
+          ib.batch_no AS batchNo,
+          p.name AS productName,
+          uc.upstream_code_encrypted AS upstreamCodeEncrypted,
+          uc.status AS upstreamStatus,
+          rc.code AS redeemCode,
+          rc.status AS redeemStatus,
+          uc.created_at AS createdAt
+        FROM upstream_codes uc
+        INNER JOIN products p ON p.id = uc.product_id
+        LEFT JOIN inventory_batches ib ON ib.id = uc.batch_id
+        LEFT JOIN redeem_codes rc ON rc.upstream_code_id = uc.id
+        WHERE (? IS NULL OR ib.batch_no = ?)
+        ORDER BY uc.created_at DESC
+        LIMIT ?
+      `,
+    )
+    .all(batchNo, batchNo, limit);
+
+  return rows.map((row) => ({
+    batchNo: row.batchNo,
+    productName: row.productName,
+    upstreamCodeMasked: maskUpstreamCode(decodeUpstreamCode(row.upstreamCodeEncrypted)),
+    upstreamStatus: row.upstreamStatus,
+    redeemCode: row.redeemCode,
+    redeemStatus: row.redeemStatus,
+    createdAt: row.createdAt,
+  }));
+}
+
+export function listInventoryBatches(limit = 24): BatchListItem[] {
+  const db = getDatabase();
+
+  return db
+    .prepare<
+      [number],
+      BatchListItem
+    >(
+      `
+        SELECT
+          ib.batch_no AS batchNo,
+          p.name AS productName,
+          ib.supplier_name AS supplierName,
+          ib.remark AS remark,
+          ib.quantity AS quantity,
+          COALESCE(SUM(CASE WHEN rc.id IS NOT NULL THEN 1 ELSE 0 END), 0) AS generatedCount,
+          COALESCE(SUM(CASE WHEN uc.status = 'in_stock' THEN 1 ELSE 0 END), 0) AS inStockCount,
+          ib.created_at AS createdAt
+        FROM inventory_batches ib
+        INNER JOIN products p ON p.id = ib.product_id
+        LEFT JOIN upstream_codes uc ON uc.batch_id = ib.id
+        LEFT JOIN redeem_codes rc ON rc.upstream_code_id = uc.id
+        GROUP BY ib.id, ib.batch_no, p.name, ib.supplier_name, ib.remark, ib.quantity, ib.created_at
+        ORDER BY ib.created_at DESC
+        LIMIT ?
+      `,
+    )
+    .all(limit);
+}

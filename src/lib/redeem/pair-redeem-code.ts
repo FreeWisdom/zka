@@ -1,102 +1,46 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 import { getDatabase } from '@/lib/storage/database';
 
 import { lookupBoundUpstreamCode } from './upstream-adapter';
 import type { PairRedeemCodeInput, PairRedeemCodeResult } from './types';
+import { createRedeemCodeForUpstream, ensureProduct } from './code-pairing';
 import {
   encodeUpstreamCode,
   hashUpstreamCode,
   normalizeUpstreamCode,
 } from './upstream-code';
 
-const DEFAULT_PRODUCT_NAME = 'ChatGPT Plus 月卡';
-const DEFAULT_PRODUCT_SLUG = 'chatgpt-plus-1m';
-const DEFAULT_PRODUCT_DESCRIPTION = '自动映射上游卡密生成的内部兑换码';
-const REDEEM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-
-type ProductRow = {
-  id: string;
-  name: string;
-};
-
-type ExistingPairRow = {
-  code: string;
+type ExistingUpstreamRow = {
+  upstreamCodeId: string;
+  productId: string;
+  code: string | null;
   productName: string;
   upstreamCodeEncrypted: string;
 };
 
-function randomSegment(length: number) {
-  return Array.from(randomBytes(length), (value) =>
-    REDEEM_CODE_ALPHABET[value % REDEEM_CODE_ALPHABET.length],
-  ).join('');
-}
-
-function createRedeemCodeCandidate() {
-  return `GIFT-${randomSegment(4)}-${randomSegment(4)}-${randomSegment(4)}`;
-}
-
-function findExistingPair(upstreamCodeHash: string) {
+function findExistingPair(upstreamCodeHash: string): ExistingUpstreamRow | undefined {
   const db = getDatabase();
 
   return db
     .prepare<
       [string],
-      ExistingPairRow
+      ExistingUpstreamRow
     >(
       `
         SELECT
+          uc.id AS upstreamCodeId,
+          uc.product_id AS productId,
           rc.code AS code,
           p.name AS productName,
           uc.upstream_code_encrypted AS upstreamCodeEncrypted
         FROM upstream_codes uc
-        INNER JOIN redeem_codes rc ON rc.upstream_code_id = uc.id
-        INNER JOIN products p ON p.id = rc.product_id
+        INNER JOIN products p ON p.id = uc.product_id
+        LEFT JOIN redeem_codes rc ON rc.upstream_code_id = uc.id
         WHERE uc.upstream_code_hash = ?
       `,
     )
     .get(upstreamCodeHash);
-}
-
-function ensureProduct(input: PairRedeemCodeInput): ProductRow {
-  const db = getDatabase();
-  const slug = input.productSlug?.trim() || DEFAULT_PRODUCT_SLUG;
-  const now = new Date().toISOString();
-  const existingProduct = db
-    .prepare<
-      [string],
-      ProductRow
-    >(
-      `
-        SELECT id, name
-        FROM products
-        WHERE slug = ?
-      `,
-    )
-    .get(slug);
-
-  if (existingProduct) {
-    return existingProduct;
-  }
-
-  const product = {
-    id: randomUUID(),
-    name: input.productName?.trim() || DEFAULT_PRODUCT_NAME,
-    slug,
-    description: input.productDescription?.trim() || DEFAULT_PRODUCT_DESCRIPTION,
-  };
-
-  db.prepare(
-    `
-      INSERT INTO products (id, name, slug, description, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `,
-  ).run(product.id, product.name, product.slug, product.description, now, now);
-
-  return {
-    id: product.id,
-    name: product.name,
-  };
 }
 
 function insertNewPair(input: PairRedeemCodeInput) {
@@ -105,7 +49,6 @@ function insertNewPair(input: PairRedeemCodeInput) {
   const normalizedUpstreamCode = normalizeUpstreamCode(input.upstreamCode);
   const product = ensureProduct(input);
   const upstreamCodeId = randomUUID();
-  const redeemCodeId = randomUUID();
   let redeemCode = '';
 
   const transaction = db.transaction(() => {
@@ -131,44 +74,11 @@ function insertNewPair(input: PairRedeemCodeInput) {
       now,
     );
 
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      redeemCode = createRedeemCodeCandidate();
-
-      try {
-        db.prepare(
-          `
-            INSERT INTO redeem_codes (
-              id,
-              code,
-              product_id,
-              upstream_code_id,
-              status,
-              issued_at,
-              updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-          `,
-        ).run(
-          redeemCodeId,
-          redeemCode,
-          product.id,
-          upstreamCodeId,
-          'unused',
-          now,
-          now,
-        );
-
-        return;
-      } catch (error) {
-        if (
-          !(error instanceof Error) ||
-          !error.message.includes('UNIQUE constraint failed: redeem_codes.code')
-        ) {
-          throw error;
-        }
-      }
-    }
-
-    throw new Error('生成内部兑换码失败，请稍后重试');
+    redeemCode = createRedeemCodeForUpstream({
+      productId: product.id,
+      upstreamCodeId,
+      now,
+    });
   });
 
   transaction();
@@ -186,7 +96,7 @@ export async function pairRedeemCode(
   const normalizedUpstreamCode = normalizeUpstreamCode(input.upstreamCode);
   const existingPair = findExistingPair(hashUpstreamCode(normalizedUpstreamCode));
 
-  if (existingPair) {
+  if (existingPair?.code) {
     const upstreamLookup = await lookupBoundUpstreamCode({
       upstreamCodeEncrypted: existingPair.upstreamCodeEncrypted,
     });
@@ -194,6 +104,39 @@ export async function pairRedeemCode(
     return {
       code: existingPair.code,
       created: false,
+      productName: existingPair.productName,
+      upstreamCodeMasked: upstreamLookup.codeMasked,
+      upstreamLookup,
+    };
+  }
+
+  if (existingPair) {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const code = db.transaction(() => {
+      const redeemCode = createRedeemCodeForUpstream({
+        productId: existingPair.productId,
+        upstreamCodeId: existingPair.upstreamCodeId,
+        now,
+      });
+
+      db.prepare(
+        `
+          UPDATE upstream_codes
+          SET status = ?, updated_at = ?
+          WHERE id = ?
+        `,
+      ).run('bound', now, existingPair.upstreamCodeId);
+
+      return redeemCode;
+    })();
+    const upstreamLookup = await lookupBoundUpstreamCode({
+      upstreamCodeEncrypted: existingPair.upstreamCodeEncrypted,
+    });
+
+    return {
+      code,
+      created: true,
       productName: existingPair.productName,
       upstreamCodeMasked: upstreamLookup.codeMasked,
       upstreamLookup,

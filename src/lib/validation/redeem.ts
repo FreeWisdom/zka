@@ -27,3 +27,13 @@ export const pairRedeemCodeSchema = z.object({
   productSlug: z.string().trim().min(1, '商品标识不能为空').optional(),
   productDescription: z.string().trim().optional(),
 });
+
+export const importInventorySchema = z.object({
+  codesText: z.string().trim().min(1, '请先粘贴上游卡密或 CSV 内容'),
+  productName: z.string().trim().optional(),
+  productSlug: z.string().trim().optional(),
+  productDescription: z.string().trim().optional(),
+  supplierName: z.string().trim().optional(),
+  remark: z.string().trim().optional(),
+  generateRedeemCodes: z.boolean().optional().default(true),
+});
