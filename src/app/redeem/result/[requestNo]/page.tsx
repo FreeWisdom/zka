@@ -8,6 +8,9 @@ type RedeemResultPageProps = {
   params: Promise<{
     requestNo: string;
   }>;
+  searchParams: Promise<{
+    refresh?: string;
+  }>;
 };
 
 function statusLabel(status: string) {
@@ -27,12 +30,16 @@ function statusLabel(status: string) {
 
 export default async function RedeemResultPage({
   params,
+  searchParams,
 }: RedeemResultPageProps) {
   const { requestNo } = await params;
+  const { refresh } = await searchParams;
   let result;
 
   try {
-    result = await getRedeemStatus(requestNo);
+    result = await getRedeemStatus(requestNo, {
+      refreshIfProcessing: refresh === '1',
+    });
   } catch (error) {
     if (error instanceof RedeemRequestLookupError) {
       notFound();
@@ -63,7 +70,7 @@ export default async function RedeemResultPage({
           </Link>
           <Link
             className="redeem-button redeem-button-secondary"
-            href={`/redeem/result/${result.requestNo}`}
+            href={`/redeem/result/${result.requestNo}?refresh=1`}
           >
             刷新状态
           </Link>

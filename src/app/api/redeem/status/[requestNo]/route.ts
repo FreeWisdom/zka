@@ -12,7 +12,11 @@ type RouteContext = {
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { requestNo } = await context.params;
-    const result = await getRedeemStatus(requestNo);
+    const requestUrl = new URL(_request.url);
+    const refreshIfProcessing = requestUrl.searchParams.get('refresh') === '1';
+    const result = await getRedeemStatus(requestNo, {
+      refreshIfProcessing,
+    });
 
     return NextResponse.json({
       success: true,

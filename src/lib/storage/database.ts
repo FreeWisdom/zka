@@ -8,6 +8,10 @@ const globalForSqlite = globalThis as typeof globalThis & {
   sqlite?: Database.Database;
 };
 
+type TableColumnRow = {
+  name: string;
+};
+
 function resolveDatabasePath() {
   const configuredPath = getDatabasePath();
   const normalizedRelativePath = configuredPath.replace(/^\.?[\\/]/, '');
@@ -15,6 +19,20 @@ function resolveDatabasePath() {
   return path.isAbsolute(configuredPath)
     ? configuredPath
     : path.join(/* turbopackIgnore: true */ process.cwd(), normalizedRelativePath);
+}
+
+function ensureColumn(
+  db: Database.Database,
+  tableName: string,
+  columnName: string,
+  definition: string,
+) {
+  const columns = db.prepare<[], TableColumnRow>(`PRAGMA table_info(${tableName})`).all();
+  const hasColumn = columns.some((column) => column.name === columnName);
+
+  if (!hasColumn) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  }
 }
 
 function initializeDatabase(db: Database.Database) {
@@ -74,6 +92,7 @@ function initializeDatabase(db: Database.Database) {
       error_message TEXT,
       submitted_at TEXT NOT NULL,
       completed_at TEXT,
+      last_checked_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       UNIQUE (redeem_code_id, attempt_no),
@@ -90,6 +109,8 @@ function initializeDatabase(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_redeem_requests_session_hash
       ON redeem_requests (session_info_hash);
   `);
+
+  ensureColumn(db, 'redeem_requests', 'last_checked_at', 'TEXT');
 }
 
 export function getDatabase() {
