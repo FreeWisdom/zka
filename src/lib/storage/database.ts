@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { getDatabasePath } from '@/lib/config/env';
+import { migrateLegacyUpstreamCodeStorage } from '@/lib/redeem/upstream-code';
 
 const globalForSqlite = globalThis as typeof globalThis & {
   sqlite?: Database.Database;
@@ -129,6 +130,8 @@ function initializeDatabase(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_upstream_codes_batch_created
       ON upstream_codes (batch_id, created_at DESC);
   `);
+
+  migrateLegacyUpstreamCodeStorage(db);
 }
 
 export function getDatabase() {

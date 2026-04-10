@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { POST } from '@/app/api/admin/redeem-codes/pair/route';
+import {
+  ADMIN_SESSION_COOKIE_NAME,
+  createAdminSessionValue,
+} from '@/lib/admin/auth';
 import { pairRedeemCode } from '@/lib/redeem/pair-redeem-code';
 import { getDatabase } from '@/lib/storage/database';
 
@@ -11,6 +15,15 @@ function createFetchResponse(payload: unknown) {
     ok: true,
     status: 200,
     json: async () => payload,
+  };
+}
+
+function createAdminHeaders() {
+  return {
+    'content-type': 'application/json',
+    cookie: `${ADMIN_SESSION_COOKIE_NAME}=${encodeURIComponent(
+      createAdminSessionValue(process.env.ADMIN_PASSWORD ?? 'test-admin-password'),
+    )}`,
   };
 }
 
@@ -95,9 +108,7 @@ describe('pairRedeemCode', () => {
     const response = await POST(
       new Request('http://localhost/api/admin/redeem-codes/pair', {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-        },
+        headers: createAdminHeaders(),
         body: JSON.stringify({
           upstreamCode: 'REAL-UPSTREAM-0001',
         }),
@@ -112,6 +123,26 @@ describe('pairRedeemCode', () => {
         created: true,
         upstreamCodeMasked: 'REAL****0001',
       },
+    });
+  });
+
+  it('rejects unauthenticated pair requests', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/admin/redeem-codes/pair', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          upstreamCode: 'REAL-UPSTREAM-0001',
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      message: '请先登录后台',
     });
   });
 });

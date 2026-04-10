@@ -4,6 +4,10 @@ import { GET as getBatchList } from '@/app/api/admin/batches/route';
 import { GET as getInventoryList } from '@/app/api/admin/inventory/route';
 import { POST as importInventory } from '@/app/api/admin/inventory/import/route';
 import {
+  ADMIN_SESSION_COOKIE_NAME,
+  createAdminSessionValue,
+} from '@/lib/admin/auth';
+import {
   importInventoryBatch,
   listInventoryBatches,
   listInventoryItems,
@@ -11,6 +15,22 @@ import {
 import { pairRedeemCode } from '@/lib/redeem/pair-redeem-code';
 
 import { resetDatabase } from '../../redeem/__tests__/helpers';
+
+function createAdminRequest(path: string, init?: RequestInit) {
+  const headers = new Headers(init?.headers);
+
+  headers.set(
+    'cookie',
+    `${ADMIN_SESSION_COOKIE_NAME}=${encodeURIComponent(
+      createAdminSessionValue(process.env.ADMIN_PASSWORD ?? 'test-admin-password'),
+    )}`,
+  );
+
+  return new Request(`http://localhost${path}`, {
+    ...init,
+    headers,
+  });
+}
 
 describe('admin inventory import', () => {
   beforeEach(async () => {
@@ -77,7 +97,7 @@ describe('admin inventory import', () => {
 
   it('exposes import, inventory and batch APIs', async () => {
     const importResponse = await importInventory(
-      new Request('http://localhost/api/admin/inventory/import', {
+      createAdminRequest('/api/admin/inventory/import', {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -100,8 +120,8 @@ describe('admin inventory import', () => {
       },
     });
 
-    const inventoryResponse = await getInventoryList();
-    const batchResponse = await getBatchList();
+    const inventoryResponse = await getInventoryList(createAdminRequest('/api/admin/inventory'));
+    const batchResponse = await getBatchList(createAdminRequest('/api/admin/batches'));
 
     await expect(inventoryResponse.json()).resolves.toMatchObject({
       success: true,
@@ -124,5 +144,29 @@ describe('admin inventory import', () => {
         ],
       },
     });
+  });
+
+  it('rejects unauthenticated admin inventory APIs', async () => {
+    const inventoryResponse = await getInventoryList(
+      new Request('http://localhost/api/admin/inventory'),
+    );
+    const batchResponse = await getBatchList(new Request('http://localhost/api/admin/batches'));
+    const importResponse = await importInventory(
+      new Request('http://localhost/api/admin/inventory/import', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          productName: 'ChatGPT Plus 月卡',
+          productSlug: 'chatgpt-plus-1m',
+          codesText: 'UPSTREAM-API-0001',
+        }),
+      }),
+    );
+
+    expect(inventoryResponse.status).toBe(401);
+    expect(batchResponse.status).toBe(401);
+    expect(importResponse.status).toBe(401);
   });
 });

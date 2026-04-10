@@ -56,11 +56,20 @@ code {
   width: min(1440px, calc(100% - 32px));
 }
 
+.admin-dashboard-shell {
+  display: grid;
+  gap: 26px;
+}
+
 .redeem-layout {
   display: grid;
   gap: 24px;
   grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
   align-items: start;
+}
+
+.redeem-layout > * {
+  min-width: 0;
 }
 
 .redeem-card,
@@ -88,6 +97,15 @@ code {
   padding: 22px;
 }
 
+.redeem-side-card ol {
+  margin: 14px 0 0;
+  padding-left: 20px;
+}
+
+.redeem-side-card li + li {
+  margin-top: 10px;
+}
+
 .redeem-card-header h1,
 .redeem-card-header h2,
 .redeem-result-card h1,
@@ -103,6 +121,12 @@ code {
 .redeem-side-card li {
   color: var(--muted);
   line-height: 1.7;
+}
+
+.redeem-card-header p,
+.redeem-result-card p,
+.redeem-side-card p {
+  margin: 0;
 }
 
 .redeem-kicker {
@@ -214,6 +238,17 @@ code {
   padding: 18px 20px;
 }
 
+.redeem-status-card,
+.redeem-result-meta,
+.redeem-result-detail {
+  overflow-wrap: anywhere;
+}
+
+.redeem-status-card code,
+.redeem-result-meta code {
+  word-break: break-all;
+}
+
 .redeem-feedback {
   margin: 18px 0 0;
   font-size: 0.95rem;
@@ -250,9 +285,113 @@ code {
   margin-top: 20px;
 }
 
+.redeem-result-card {
+  width: min(760px, 100%);
+  justify-self: center;
+}
+
 .admin-stack {
   display: grid;
   gap: 24px;
+}
+
+.admin-toolbar-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 24px;
+}
+
+.admin-toolbar-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-toolbar-card .redeem-kicker {
+  margin-bottom: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+}
+
+.admin-toolbar-card .redeem-kicker::before {
+  width: 26px;
+}
+
+.admin-toolbar-card .redeem-card-header h1 {
+  font-size: clamp(1.25rem, 1.3vw, 1.65rem);
+  line-height: 1.1;
+}
+
+.admin-toolbar-card .redeem-card-header p {
+  margin: 0;
+  max-width: 860px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.admin-toolbar-actions {
+  margin-top: 0;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.admin-toolbar-card .redeem-button {
+  min-width: 112px;
+  padding: 11px 18px;
+}
+
+.admin-import-card {
+  padding: 22px 24px;
+}
+
+.admin-import-header {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-import-card .redeem-kicker {
+  margin-bottom: 0;
+}
+
+.admin-import-card .redeem-card-header h1 {
+  font-size: clamp(1.4rem, 1.55vw, 1.95rem);
+  line-height: 1.08;
+}
+
+.admin-import-card .redeem-card-header p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.admin-import-form-grid {
+  gap: 12px;
+}
+
+.admin-import-card .redeem-field-group {
+  margin-top: 14px;
+}
+
+.admin-import-codes-group {
+  margin-top: 16px;
+}
+
+.admin-import-textarea {
+  min-height: 124px;
+}
+
+.admin-import-checkbox {
+  margin-top: 14px;
+}
+
+.admin-import-actions {
+  margin-top: 16px;
+}
+
+.admin-import-card .redeem-button {
+  min-width: 124px;
+  padding: 12px 20px;
 }
 
 .admin-layout {
@@ -460,6 +599,7 @@ code {
 @media (max-width: 900px) {
   .redeem-layout {
     grid-template-columns: 1fr;
+    gap: 18px;
   }
 
   .redeem-code-check-row {
@@ -470,6 +610,48 @@ code {
     width: 100%;
   }
 
+  .redeem-side-panel {
+    gap: 14px;
+  }
+
+  .redeem-side-card {
+    padding: 18px 20px;
+  }
+
+  .redeem-status-card {
+    padding: 16px 18px;
+  }
+
+  .redeem-card-header h1,
+  .redeem-card-header h2,
+  .redeem-result-card h1,
+  .redeem-side-card h2 {
+    font-size: clamp(1.45rem, 7vw, 2rem);
+    line-height: 1.1;
+  }
+
+  .redeem-card-header p,
+  .redeem-result-card p,
+  .redeem-side-card p,
+  .redeem-side-card li {
+    line-height: 1.55;
+  }
+
+  .redeem-textarea {
+    min-height: 152px;
+  }
+
+  .redeem-layout .redeem-actions,
+  .redeem-result-card .redeem-actions {
+    gap: 10px;
+  }
+
+  .redeem-layout .redeem-actions > *,
+  .redeem-result-card .redeem-actions > * {
+    width: 100%;
+    min-width: 0;
+  }
+
   .admin-layout,
   .admin-form-grid,
   .admin-summary-grid {
@@ -478,6 +660,36 @@ code {
 
   .admin-shell {
     width: min(100% - 20px, 1440px);
+  }
+
+  .admin-dashboard-shell {
+    gap: 20px;
+  }
+
+  .admin-toolbar-card {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px 22px;
+  }
+
+  .admin-toolbar-actions {
+    justify-content: flex-start;
+  }
+
+  .admin-import-card {
+    padding: 20px 22px;
+  }
+
+  .admin-import-card .redeem-card-header h1 {
+    font-size: clamp(1.3rem, 5.8vw, 1.75rem);
+  }
+
+  .admin-import-form-grid {
+    gap: 10px;
+  }
+
+  .admin-import-textarea {
+    min-height: 118px;
   }
 
   .admin-batch-panel {
@@ -501,5 +713,88 @@ code {
   .redeem-card,
   .redeem-result-card {
     padding: 22px;
+  }
+}
+
+@media (max-width: 560px) {
+  .redeem-shell {
+    width: min(100% - 16px, 1180px);
+    padding: 18px 0 36px;
+  }
+
+  .redeem-card,
+  .redeem-result-card,
+  .redeem-side-card {
+    border-radius: 22px;
+  }
+
+  .redeem-card,
+  .redeem-result-card {
+    padding: 18px;
+  }
+
+  .redeem-side-card {
+    padding: 16px 18px;
+  }
+
+  .redeem-kicker {
+    gap: 6px;
+    margin-bottom: 10px;
+    font-size: 0.74rem;
+    letter-spacing: 0.12em;
+  }
+
+  .redeem-kicker::before {
+    width: 24px;
+  }
+
+  .redeem-field-group {
+    margin-top: 16px;
+  }
+
+  .redeem-input,
+  .redeem-textarea {
+    border-radius: 16px;
+    padding: 14px 15px;
+  }
+
+  .redeem-status-card {
+    gap: 7px;
+    margin-top: 16px;
+    padding: 14px 15px;
+  }
+
+  .redeem-feedback {
+    margin-top: 14px;
+  }
+
+  .redeem-result-meta {
+    gap: 10px;
+    margin-top: 16px;
+    align-items: flex-start;
+  }
+
+  .redeem-pill {
+    padding: 7px 12px;
+  }
+
+  .redeem-button {
+    padding: 13px 18px;
+  }
+
+  .admin-import-card {
+    padding: 18px;
+  }
+
+  .admin-import-card .redeem-field-group {
+    margin-top: 12px;
+  }
+
+  .admin-import-textarea {
+    min-height: 104px;
+  }
+
+  .admin-import-actions {
+    margin-top: 14px;
   }
 }

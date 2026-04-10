@@ -1,7 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { POST } from '@/app/api/redeem/submit/route';
+import type { NormalizedUpstreamResult } from '@/lib/redeem/types';
 import { submitRedeem } from '@/lib/redeem/submit-redeem';
+import * as upstreamAdapter from '@/lib/redeem/upstream-adapter';
 import { getDatabase } from '@/lib/storage/database';
 
 import { resetDatabase, seedRedeemFixtures } from './helpers';
@@ -23,6 +25,10 @@ describe('submitRedeem', () => {
   beforeEach(async () => {
     await resetDatabase();
     await seedRedeemFixtures();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('creates a success request and marks the redeem code successful', async () => {
@@ -170,6 +176,50 @@ describe('submitRedeem', () => {
       status: 'processing',
       retryable: false,
       message: '\u5904\u7406\u4e2d\uff0c\u8bf7\u7a0d\u540e\u5237\u65b0',
+    });
+  });
+
+  it('reuses the same in-flight request for concurrent duplicate submits', async () => {
+    let resolveActivate: ((value: NormalizedUpstreamResult) => void) | undefined;
+    const activatePromise = new Promise<NormalizedUpstreamResult>((resolve) => {
+      resolveActivate = resolve;
+    });
+
+    const activateSpy = vi
+      .spyOn(upstreamAdapter, 'activateUpstreamCode')
+      .mockImplementation(async () => activatePromise);
+    const firstSubmit = submitRedeem({
+      code: 'GIFT-VALID-0001',
+      sessionInfo: createSessionInfo(),
+    });
+    const secondSubmit = submitRedeem({
+      code: 'GIFT-VALID-0001',
+      sessionInfo: createSessionInfo(),
+    });
+
+    const secondResult = await secondSubmit;
+
+    resolveActivate?.({
+      ok: true,
+      state: 'success',
+      retryable: false,
+      message: '兑换成功',
+      upstreamStatus: 'success',
+      upstreamStatusCode: 1,
+      completedAt: new Date().toISOString(),
+      raw: {
+        msg: '充值成功',
+      },
+    });
+
+    const firstResult = await firstSubmit;
+
+    expect(activateSpy).toHaveBeenCalledTimes(1);
+    expect(secondResult).toMatchObject({
+      requestNo: firstResult.requestNo,
+      status: 'submitted',
+      retryable: false,
+      message: '兑换请求处理中，请稍后刷新',
     });
   });
 

@@ -2,10 +2,11 @@ import { randomUUID } from 'node:crypto';
 
 import { getDatabase } from '@/lib/storage/database';
 
-import { checkRedeemCode } from './check-code';
 import { RedeemCodeLookupError, RedeemSubmitError } from './errors';
 import { analyzeSessionInfo } from './session-info';
 import type {
+  NormalizedUpstreamResult,
+  RedeemCodeStatus,
   RedeemRequestStatus,
   SubmitRedeemInput,
   SubmitRedeemResult,
@@ -15,14 +16,37 @@ import { activateUpstreamCode } from './upstream-adapter';
 
 type RedeemSubmitLookupRow = {
   redeemCodeId: string;
+  redeemStatus: RedeemCodeStatus;
   upstreamCodeId: string;
+  upstreamStatus: UpstreamCodeStatus;
   upstreamCodeEncrypted: string;
 };
 
 type LastRequestRow = {
   id: string;
-  attempt_no: number;
+  requestNo: string;
+  status: RedeemRequestStatus;
+  errorMessage: string | null;
+  attemptNo: number;
 };
+
+type ReservedRedeemSubmission = {
+  kind: 'reserved';
+  redeemCodeId: string;
+  upstreamCodeId: string;
+  upstreamCodeEncrypted: string;
+  requestId: string;
+  requestNo: string;
+};
+
+type ExistingRedeemSubmission = {
+  kind: 'existing';
+  result: SubmitRedeemResult;
+};
+
+type ReserveRedeemSubmissionResult =
+  | ExistingRedeemSubmission
+  | ReservedRedeemSubmission;
 
 function createRequestNo() {
   return `REQ${Date.now()}${Math.floor(1000 + Math.random() * 9000)}`;
@@ -72,75 +96,187 @@ function mapRedeemMetadata(input: {
   };
 }
 
-export async function submitRedeem(
-  input: SubmitRedeemInput,
-): Promise<SubmitRedeemResult> {
+function loadRedeemSubmitRow(code: string) {
   const db = getDatabase();
-  const normalizedCode = input.code.trim().toUpperCase();
-  const checkResult = await checkRedeemCode(normalizedCode);
 
-  if (!checkResult.canSubmit) {
-    throw new RedeemSubmitError(checkResult.message);
-  }
-
-  const redeemRow = db
-    .prepare<
-      [string],
-      RedeemSubmitLookupRow
-    >(
+  return db
+    .prepare<[string], RedeemSubmitLookupRow>(
       `
         SELECT
           rc.id AS redeemCodeId,
+          rc.status AS redeemStatus,
           uc.id AS upstreamCodeId,
+          uc.status AS upstreamStatus,
           uc.upstream_code_encrypted AS upstreamCodeEncrypted
         FROM redeem_codes rc
         INNER JOIN upstream_codes uc ON uc.id = rc.upstream_code_id
         WHERE rc.code = ?
       `,
     )
-    .get(normalizedCode);
+    .get(code);
+}
 
-  if (!redeemRow) {
-    throw new RedeemCodeLookupError('兑换码不存在');
-  }
+function loadLastRequest(redeemCodeId: string) {
+  const db = getDatabase();
 
-  const lastRequest = db
-    .prepare<
-      [string],
-      LastRequestRow
-    >(
+  return db
+    .prepare<[string], LastRequestRow>(
       `
-        SELECT id, attempt_no
+        SELECT
+          id,
+          request_no AS requestNo,
+          status,
+          error_message AS errorMessage,
+          attempt_no AS attemptNo
         FROM redeem_requests
         WHERE redeem_code_id = ?
         ORDER BY attempt_no DESC
         LIMIT 1
       `,
     )
-    .get(redeemRow.redeemCodeId);
-  const attemptNo = (lastRequest?.attempt_no ?? 0) + 1;
-  const requestNo = createRequestNo();
-  const requestId = randomUUID();
-  const sessionInfo = analyzeSessionInfo(input.sessionInfo);
-  const upstreamResult = await activateUpstreamCode({
-    upstreamCodeEncrypted: redeemRow.upstreamCodeEncrypted,
-    sessionInfo,
-    sessionInfoRaw: input.sessionInfo,
-  });
-  const now = new Date().toISOString();
-  const redeemMetadata = mapRedeemMetadata({
-    status: upstreamResult.state,
-    message: upstreamResult.message,
-    completedAt: upstreamResult.completedAt,
-  });
-  const upstreamMetadata = mapUpstreamMetadata({
-    status: upstreamResult.state,
-    upstreamStatus: upstreamResult.upstreamStatus,
-    message: upstreamResult.message,
-    completedAt: upstreamResult.completedAt,
-  });
+    .get(redeemCodeId);
+}
 
-  const transaction = db.transaction(() => {
+function mapBlockedSubmitMessage(row: RedeemSubmitLookupRow) {
+  if (row.redeemStatus === 'unused' && row.upstreamStatus === 'bound') {
+    return null;
+  }
+
+  if (row.redeemStatus === 'failed' && row.upstreamStatus === 'bound') {
+    return null;
+  }
+
+  if (row.redeemStatus === 'submitted' || row.upstreamStatus === 'submitted') {
+    return '兑换请求处理中，请稍后刷新';
+  }
+
+  if (row.redeemStatus === 'success') {
+    return '兑换码已使用';
+  }
+
+  if (row.redeemStatus === 'locked') {
+    return '兑换码已锁定';
+  }
+
+  if (row.upstreamStatus === 'invalid') {
+    return '兑换码当前不可用，请联系管理员';
+  }
+
+  return '兑换码当前不可提交';
+}
+
+function createExistingSubmissionResult(lastRequest: LastRequestRow | undefined) {
+  if (!lastRequest) {
+    return null;
+  }
+
+  if (lastRequest.status !== 'submitted' && lastRequest.status !== 'processing') {
+    return null;
+  }
+
+  return {
+    requestNo: lastRequest.requestNo,
+    status: lastRequest.status,
+    retryable: false,
+    message: lastRequest.errorMessage ?? '兑换请求处理中，请稍后刷新',
+  } satisfies SubmitRedeemResult;
+}
+
+function createExistingReservation(
+  result: SubmitRedeemResult,
+): ExistingRedeemSubmission {
+  return {
+    kind: 'existing',
+    result,
+  };
+}
+
+function createReservedReservation(input: Omit<ReservedRedeemSubmission, 'kind'>) {
+  return {
+    kind: 'reserved',
+    ...input,
+  } satisfies ReservedRedeemSubmission;
+}
+
+function reserveRedeemSubmission(input: {
+  code: string;
+  sessionInfoMasked: string;
+  sessionInfoHash: string;
+}): ReserveRedeemSubmissionResult {
+  const db = getDatabase();
+  const transaction: (transactionInput: typeof input) => ReserveRedeemSubmissionResult =
+    db.transaction((transactionInput: typeof input) => {
+    const row = loadRedeemSubmitRow(transactionInput.code);
+
+    if (!row) {
+      throw new RedeemCodeLookupError('兑换码不存在');
+    }
+
+    const lastRequest = loadLastRequest(row.redeemCodeId);
+    const existingSubmission = createExistingSubmissionResult(lastRequest);
+
+    if (existingSubmission) {
+      return createExistingReservation(existingSubmission);
+    }
+
+    const blockedMessage = mapBlockedSubmitMessage(row);
+
+    if (blockedMessage) {
+      throw new RedeemSubmitError(blockedMessage);
+    }
+
+    const now = new Date().toISOString();
+    const requestId = randomUUID();
+    const requestNo = createRequestNo();
+    const attemptNo = (lastRequest?.attemptNo ?? 0) + 1;
+    const redeemUpdate = db
+      .prepare(
+        `
+          UPDATE redeem_codes
+          SET
+            status = ?,
+            submitted_at = ?,
+            redeemed_at = ?,
+            last_error_message = ?,
+            updated_at = ?
+          WHERE id = ?
+            AND status IN ('unused', 'failed')
+        `,
+      )
+      .run('submitted', now, null, null, now, row.redeemCodeId);
+    const upstreamUpdate = db
+      .prepare(
+        `
+          UPDATE upstream_codes
+          SET
+            status = ?,
+            activated_at = ?,
+            invalid_at = ?,
+            last_error_message = ?,
+            updated_at = ?
+          WHERE id = ?
+            AND status = 'bound'
+        `,
+      )
+      .run('submitted', null, null, null, now, row.upstreamCodeId);
+
+    if (redeemUpdate.changes !== 1 || upstreamUpdate.changes !== 1) {
+      const refreshedLastRequest = loadLastRequest(row.redeemCodeId);
+      const raceSubmission = createExistingSubmissionResult(refreshedLastRequest);
+
+      if (raceSubmission) {
+        return createExistingReservation(raceSubmission);
+      }
+
+      const refreshedRow = loadRedeemSubmitRow(transactionInput.code);
+
+      if (!refreshedRow) {
+        throw new RedeemCodeLookupError('兑换码不存在');
+      }
+
+      throw new RedeemSubmitError(mapBlockedSubmitMessage(refreshedRow) ?? '兑换码当前不可提交');
+    }
+
     db.prepare(
       `
         INSERT INTO redeem_requests (
@@ -164,19 +300,72 @@ export async function submitRedeem(
     ).run(
       requestId,
       requestNo,
-      redeemRow.redeemCodeId,
+      row.redeemCodeId,
       attemptNo,
       lastRequest?.id ?? null,
-      sessionInfo.masked,
-      sessionInfo.hash,
+      transactionInput.sessionInfoMasked,
+      transactionInput.sessionInfoHash,
+      'submitted',
+      null,
+      null,
+      null,
+      now,
+      null,
+      now,
+      now,
+    );
+
+    return createReservedReservation({
+      redeemCodeId: row.redeemCodeId,
+      upstreamCodeId: row.upstreamCodeId,
+      upstreamCodeEncrypted: row.upstreamCodeEncrypted,
+      requestId,
+      requestNo,
+    });
+    });
+
+  return transaction(input);
+}
+
+function finalizeReservedRedeemSubmission(
+  reservation: ReservedRedeemSubmission,
+  upstreamResult: NormalizedUpstreamResult,
+) {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const redeemMetadata = mapRedeemMetadata({
+    status: upstreamResult.state,
+    message: upstreamResult.message,
+    completedAt: upstreamResult.completedAt,
+  });
+  const upstreamMetadata = mapUpstreamMetadata({
+    status: upstreamResult.state,
+    upstreamStatus: upstreamResult.upstreamStatus,
+    message: upstreamResult.message,
+    completedAt: upstreamResult.completedAt,
+  });
+
+  db.transaction(() => {
+    db.prepare(
+      `
+        UPDATE redeem_requests
+        SET
+          status = ?,
+          upstream_status_code = ?,
+          upstream_response = ?,
+          error_message = ?,
+          completed_at = ?,
+          updated_at = ?
+        WHERE id = ?
+      `,
+    ).run(
       upstreamResult.state,
       upstreamResult.upstreamStatusCode ?? null,
       JSON.stringify(upstreamResult.raw),
       upstreamResult.state === 'success' ? null : upstreamResult.message,
-      now,
       upstreamResult.state === 'processing' ? null : upstreamResult.completedAt ?? now,
       now,
-      now,
+      reservation.requestId,
     );
 
     db.prepare(
@@ -184,7 +373,7 @@ export async function submitRedeem(
         UPDATE redeem_codes
         SET
           status = ?,
-          submitted_at = ?,
+          submitted_at = COALESCE(submitted_at, ?),
           redeemed_at = ?,
           last_error_message = ?,
           updated_at = ?
@@ -196,7 +385,7 @@ export async function submitRedeem(
       redeemMetadata.redeemedAt,
       redeemMetadata.lastErrorMessage,
       now,
-      redeemRow.redeemCodeId,
+      reservation.redeemCodeId,
     );
 
     db.prepare(
@@ -216,14 +405,57 @@ export async function submitRedeem(
       upstreamMetadata.invalidAt,
       upstreamMetadata.lastErrorMessage,
       now,
-      redeemRow.upstreamCodeId,
+      reservation.upstreamCodeId,
     );
-  });
+  })();
+}
 
-  transaction();
+function createUnexpectedActivateResult(error: unknown): NormalizedUpstreamResult {
+  const message = error instanceof Error ? error.message : '兑换失败，请稍后重试';
 
   return {
-    requestNo,
+    ok: false,
+    state: 'failed_retryable',
+    retryable: true,
+    message,
+    upstreamStatus: 'bound',
+    raw: {
+      msg: message,
+    },
+  };
+}
+
+export async function submitRedeem(
+  input: SubmitRedeemInput,
+): Promise<SubmitRedeemResult> {
+  const normalizedCode = input.code.trim().toUpperCase();
+  const sessionInfo = analyzeSessionInfo(input.sessionInfo);
+  const reservation = reserveRedeemSubmission({
+    code: normalizedCode,
+    sessionInfoMasked: sessionInfo.masked,
+    sessionInfoHash: sessionInfo.hash,
+  });
+
+  if (reservation.kind === 'existing') {
+    return reservation.result;
+  }
+
+  let upstreamResult: NormalizedUpstreamResult;
+
+  try {
+    upstreamResult = await activateUpstreamCode({
+      upstreamCodeEncrypted: reservation.upstreamCodeEncrypted,
+      sessionInfo,
+      sessionInfoRaw: input.sessionInfo,
+    });
+  } catch (error) {
+    upstreamResult = createUnexpectedActivateResult(error);
+  }
+
+  finalizeReservedRedeemSubmission(reservation, upstreamResult);
+
+  return {
+    requestNo: reservation.requestNo,
     status: upstreamResult.state,
     retryable: upstreamResult.retryable,
     message: upstreamResult.message,

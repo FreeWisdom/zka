@@ -176,8 +176,8 @@ export function InventoryManager({
 
   return (
     <div className="admin-stack">
-      <section className="redeem-card">
-        <div className="redeem-card-header">
+      <section className="redeem-card admin-import-card">
+        <div className="redeem-card-header admin-import-header">
           <span className="redeem-kicker">zka</span>
           <h1>导入上游卡密</h1>
           <p>
@@ -186,8 +186,8 @@ export function InventoryManager({
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="admin-form-grid">
+        <form className="admin-import-form" onSubmit={handleSubmit}>
+          <div className="admin-form-grid admin-import-form-grid">
             <div className="redeem-field-group">
               <label className="redeem-label" htmlFor="productName">
                 商品名称
@@ -259,12 +259,12 @@ export function InventoryManager({
             </div>
           </div>
 
-          <div className="redeem-field-group">
+          <div className="redeem-field-group admin-import-codes-group">
             <label className="redeem-label" htmlFor="codesText">
               上游卡密 / CSV 内容
             </label>
             <textarea
-              className="redeem-textarea"
+              className="redeem-textarea admin-import-textarea"
               id="codesText"
               placeholder={'一行一个，或直接粘贴逗号分隔 / CSV 的 cdkey 列'}
               value={formState.codesText}
@@ -277,7 +277,7 @@ export function InventoryManager({
             />
           </div>
 
-          <label className="admin-checkbox">
+          <label className="admin-checkbox admin-import-checkbox">
             <input
               checked={formState.generateRedeemCodes}
               type="checkbox"
@@ -291,7 +291,7 @@ export function InventoryManager({
             <span>导入后立即生成内部卡密</span>
           </label>
 
-          <div className="redeem-actions">
+          <div className="redeem-actions admin-import-actions">
             <button className="redeem-button" disabled={submitting} type="submit">
               {submitting ? '导入中...' : '开始导入'}
             </button>

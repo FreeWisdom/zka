@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import {
+  createAdminUnauthorizedResponse,
+  isAdminRequestAuthenticated,
+} from '@/lib/admin/auth';
 import { pairRedeemCode } from '@/lib/redeem/pair-redeem-code';
 import { pairRedeemCodeSchema } from '@/lib/validation/redeem';
 
 export async function POST(request: Request) {
+  if (!isAdminRequestAuthenticated(request)) {
+    return createAdminUnauthorizedResponse();
+  }
+
   try {
     const payload = pairRedeemCodeSchema.parse(await request.json());
     const result = await pairRedeemCode(payload);

@@ -1,15 +1,84 @@
-import { createHash } from 'node:crypto';
+import type Database from 'better-sqlite3';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from 'node:crypto';
+
+import { getServerEnv } from '@/lib/config/env';
+
+const ENCRYPTED_PREFIX = 'enc:v1';
+const IV_LENGTH = 12;
+
+type LegacyUpstreamCodeRow = {
+  id: string;
+  upstream_code_encrypted: string;
+};
 
 export function normalizeUpstreamCode(value: string) {
   return value.trim().toUpperCase();
 }
 
+function getEncryptionKey() {
+  const configuredKey = getServerEnv().cardEncryptionKey;
+
+  if (!configuredKey) {
+    throw new Error('CARD_ENCRYPTION_KEY 未配置，无法加密或解密上游卡密');
+  }
+
+  return createHash('sha256').update(configuredKey).digest();
+}
+
+function decodeLegacyUpstreamCode(encodedValue: string) {
+  return Buffer.from(encodedValue, 'base64').toString('utf8');
+}
+
+export function isEncryptedUpstreamCode(value: string) {
+  return value.startsWith(`${ENCRYPTED_PREFIX}:`);
+}
+
 export function encodeUpstreamCode(value: string) {
-  return Buffer.from(normalizeUpstreamCode(value), 'utf8').toString('base64');
+  const normalizedValue = normalizeUpstreamCode(value);
+  const iv = randomBytes(IV_LENGTH);
+  const cipher = createCipheriv('aes-256-gcm', getEncryptionKey(), iv);
+  const encrypted = Buffer.concat([
+    cipher.update(normalizedValue, 'utf8'),
+    cipher.final(),
+  ]);
+  const authTag = cipher.getAuthTag();
+
+  return [
+    ENCRYPTED_PREFIX,
+    iv.toString('base64url'),
+    authTag.toString('base64url'),
+    encrypted.toString('base64url'),
+  ].join(':');
 }
 
 export function decodeUpstreamCode(encodedValue: string) {
-  return Buffer.from(encodedValue, 'base64').toString('utf8');
+  if (!isEncryptedUpstreamCode(encodedValue)) {
+    return decodeLegacyUpstreamCode(encodedValue);
+  }
+
+  const [, , ivValue, authTagValue, encryptedValue] = encodedValue.split(':');
+
+  if (!ivValue || !authTagValue || !encryptedValue) {
+    throw new Error('上游卡密密文格式无效');
+  }
+
+  const decipher = createDecipheriv(
+    'aes-256-gcm',
+    getEncryptionKey(),
+    Buffer.from(ivValue, 'base64url'),
+  );
+
+  decipher.setAuthTag(Buffer.from(authTagValue, 'base64url'));
+
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedValue, 'base64url')),
+    decipher.final(),
+  ]).toString('utf8');
 }
 
 export function hashUpstreamCode(value: string) {
@@ -24,4 +93,41 @@ export function maskUpstreamCode(value: string) {
   }
 
   return `${normalizedValue.slice(0, 4)}****${normalizedValue.slice(-4)}`;
+}
+
+export function migrateLegacyUpstreamCodeStorage(db: Database.Database) {
+  const legacyRows = db
+    .prepare<[], LegacyUpstreamCodeRow>(
+      `
+        SELECT id, upstream_code_encrypted
+        FROM upstream_codes
+      `,
+    )
+    .all()
+    .filter((row) => !isEncryptedUpstreamCode(row.upstream_code_encrypted));
+
+  if (!legacyRows.length || !getServerEnv().cardEncryptionKey) {
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const updateStatement = db.prepare(
+    `
+      UPDATE upstream_codes
+      SET
+        upstream_code_encrypted = ?,
+        updated_at = ?
+      WHERE id = ?
+    `,
+  );
+
+  db.transaction(() => {
+    for (const row of legacyRows) {
+      updateStatement.run(
+        encodeUpstreamCode(decodeLegacyUpstreamCode(row.upstream_code_encrypted)),
+        now,
+        row.id,
+      );
+    }
+  })();
 }
