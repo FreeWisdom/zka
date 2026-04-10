@@ -154,6 +154,21 @@ code {
   transform: translateY(-1px);
 }
 
+.redeem-code-check-row {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.redeem-code-check-row .redeem-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.redeem-code-check-button {
+  flex: 0 0 auto;
+}
+
 .redeem-textarea {
   resize: vertical;
   min-height: 180px;
@@ -445,6 +460,14 @@ code {
 @media (max-width: 900px) {
   .redeem-layout {
     grid-template-columns: 1fr;
+  }
+
+  .redeem-code-check-row {
+    flex-direction: column;
+  }
+
+  .redeem-code-check-button {
+    width: 100%;
   }
 
   .admin-layout,

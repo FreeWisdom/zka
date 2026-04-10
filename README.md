@@ -1,6 +1,6 @@
-# Platform B
+# zka
 
-平台 B 已实现最小可运行兑换流，包含：
+`zka` 已实现最小可运行兑换流，包含：
 
 - `/redeem`：兑换码校验与提交页
 - `/api/redeem/check-code`：兑换码检查接口
@@ -21,7 +21,7 @@ npm run db:seed
 npm run dev
 ```
 
-默认数据库文件位于 `data/platform-b.db`。
+默认数据库文件位于 `data/` 目录，由 `DATABASE_PATH` 控制。
 
 ## 环境变量
 

@@ -87,8 +87,7 @@ export function RedeemForm() {
   return (
     <div className="redeem-card">
       <div className="redeem-card-header">
-        <span className="redeem-kicker">Platform B</span>
-        <h1>提交内部兑换码</h1>
+        <span className="redeem-kicker">提交内部兑换码</span>
         <p>
           先校验兑换码，再粘贴完整的 <code>session_info</code> 发起兑换。
         </p>
@@ -96,26 +95,25 @@ export function RedeemForm() {
 
       <div className="redeem-field-group">
         <label className="redeem-label" htmlFor="redeem-code">
-          内部兑换码
+          兑换码
         </label>
-        <input
-          id="redeem-code"
-          className="redeem-input"
-          placeholder="例如 GIFT-9X2K-7WQ4-ABCD"
-          value={code}
-          onChange={(event) => setCode(event.target.value.toUpperCase())}
-        />
-      </div>
-
-      <div className="redeem-actions">
-        <button
-          className="redeem-button redeem-button-secondary"
-          disabled={isChecking || isPending}
-          onClick={handleCheckCode}
-          type="button"
-        >
-          {isChecking ? '校验中...' : '校验兑换码'}
-        </button>
+        <div className="redeem-code-check-row">
+          <input
+            id="redeem-code"
+            className="redeem-input"
+            placeholder="例如 GIFT-9X2K-7WQ4-ABCD"
+            value={code}
+            onChange={(event) => setCode(event.target.value.toUpperCase())}
+          />
+          <button
+            className="redeem-button redeem-button-secondary redeem-code-check-button"
+            disabled={isChecking || isPending}
+            onClick={handleCheckCode}
+            type="button"
+          >
+            {isChecking ? '校验中...' : '校验兑换码'}
+          </button>
+        </div>
       </div>
 
       {lookupState ? (

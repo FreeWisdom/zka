@@ -1,10 +1,10 @@
-# Platform B Implementation Plan
+# zka Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the first runnable Platform B redeem flow with code check, redeem submission, status query, and result pages on a Next.js + Prisma + SQLite stack.
+**Goal:** Build the first runnable zka redeem flow with code check, redeem submission, status query, and result pages on a Next.js + Prisma + SQLite stack.
 
-**Architecture:** Use a single Next.js App Router application with Prisma-backed domain services. Keep the upstream integration behind a local adapter so Platform B can ship now with deterministic mock behavior and later swap to the real upstream API without rewriting the redeem workflow.
+**Architecture:** Use a single Next.js App Router application with Prisma-backed domain services. Keep the upstream integration behind a local adapter so zka can ship now with deterministic mock behavior and later swap to the real upstream API without rewriting the redeem workflow.
 
 **Tech Stack:** Next.js, React, TypeScript, Prisma, SQLite, Zod, Vitest, Testing Library
 
@@ -62,7 +62,7 @@ Expected: FAIL because dependencies and scripts do not exist yet
 Run: `npm test`
 Expected: PASS for the smoke test
 
-### Task 2: Model Platform B data and Prisma client
+### Task 2: Model zka data and Prisma client
 
 **Files:**
 - Create: `prisma/schema.prisma`

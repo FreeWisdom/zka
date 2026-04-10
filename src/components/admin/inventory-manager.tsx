@@ -178,7 +178,7 @@ export function InventoryManager({
     <div className="admin-stack">
       <section className="redeem-card">
         <div className="redeem-card-header">
-          <span className="redeem-kicker">Platform C</span>
+          <span className="redeem-kicker">zka</span>
           <h1>导入上游卡密</h1>
           <p>
             支持直接粘贴文本或 CSV 片段。默认会在导入时同步生成内部兑换码，方便立刻给

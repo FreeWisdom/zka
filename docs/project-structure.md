@@ -29,7 +29,7 @@
 
 ### `data`
 
-本地 SQLite 数据库目录。默认数据库文件是 `data/platform-b.db`。
+本地 SQLite 数据库目录。数据库文件路径由 `DATABASE_PATH` 控制。
 
 ### `scripts`
 

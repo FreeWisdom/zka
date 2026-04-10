@@ -93,7 +93,7 @@ export async function seedRedeemFixtures() {
     id: randomUUID(),
     name: 'ChatGPT Plus 月卡',
     slug: 'chatgpt-plus-1m',
-    description: '平台 B 测试商品',
+    description: 'zka 测试商品',
   };
 
   db.prepare(
