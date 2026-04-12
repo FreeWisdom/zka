@@ -34,7 +34,9 @@ export default async function AdminInventoryPage() {
       <InventoryManager
         initialBatches={batches}
         initialInventory={
-          selectedBatchNo ? listInventoryItems({ batchNo: selectedBatchNo }) : listInventoryItems()
+          selectedBatchNo
+            ? listInventoryItems({ batchNo: selectedBatchNo, limit: null })
+            : listInventoryItems()
         }
       />
     </main>

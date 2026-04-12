@@ -3,6 +3,8 @@
 coverage
 node_modules
 .env
+.env.local
+.env.*.local
 data/*.db
 data/*.db-journal
 .preview-*.log

@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { GET as getBatchList } from '@/app/api/admin/batches/route';
+import { GET as exportInventory } from '@/app/api/admin/inventory/export/route';
 import { GET as getInventoryList } from '@/app/api/admin/inventory/route';
+import { GET as revealInventory } from '@/app/api/admin/inventory/reveal/route';
 import { POST as importInventory } from '@/app/api/admin/inventory/import/route';
 import {
   ADMIN_SESSION_COOKIE_NAME,
@@ -146,11 +148,89 @@ describe('admin inventory import', () => {
     });
   });
 
+  it('exports generated redeem codes as csv for a selected batch', async () => {
+    const generatedBatch = importInventoryBatch({
+      productName: 'ChatGPT Plus 月卡',
+      productSlug: 'chatgpt-plus-1m',
+      codesText: ['UPSTREAM-EXPORT-0001', 'UPSTREAM-EXPORT-0002'].join('\n'),
+    });
+    importInventoryBatch({
+      productName: 'ChatGPT Plus 月卡',
+      productSlug: 'chatgpt-plus-1m',
+      codesText: 'UPSTREAM-EXPORT-STOCK-0001',
+      generateRedeemCodes: false,
+    });
+
+    const response = await exportInventory(
+      createAdminRequest(
+        `/api/admin/inventory/export?batchNo=${encodeURIComponent(generatedBatch.batchNo)}`,
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/csv');
+    expect(response.headers.get('content-disposition')).toContain(generatedBatch.batchNo);
+    expect(response.headers.get('x-exported-count')).toBe('2');
+
+    const text = (await response.text()).replace(/^\uFEFF/, '');
+
+    expect(text).toContain(
+      'batchNo,productName,upstreamCodeMasked,redeemCode,redeemStatus,upstreamStatus,deliverable,createdAt',
+    );
+    expect(text).toContain(generatedBatch.batchNo);
+    expect(text).toContain('GIFT-');
+    expect(text).toContain('yes');
+    expect(text).not.toContain('UPSTREAM-EXPORT-STOCK-0001');
+  });
+
+  it('reveals a full upstream code for an authenticated admin', async () => {
+    importInventoryBatch({
+      productName: 'ChatGPT Plus 月卡',
+      productSlug: 'chatgpt-plus-1m',
+      codesText: 'REAL-UPSTREAM-0001',
+    });
+
+    const inventory = listInventoryItems();
+    const response = await revealInventory(
+      createAdminRequest(
+        `/api/admin/inventory/reveal?upstreamCodeId=${encodeURIComponent(
+          inventory[0]?.upstreamCodeId ?? '',
+        )}`,
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      data: {
+        upstreamCode: 'REAL-UPSTREAM-0001',
+      },
+    });
+  });
+
+  it('rejects invalid reveal requests', async () => {
+    const response = await revealInventory(
+      createAdminRequest('/api/admin/inventory/reveal?upstreamCodeId='),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      message: '缺少上游卡密记录 ID',
+    });
+  });
+
   it('rejects unauthenticated admin inventory APIs', async () => {
     const inventoryResponse = await getInventoryList(
       new Request('http://localhost/api/admin/inventory'),
     );
     const batchResponse = await getBatchList(new Request('http://localhost/api/admin/batches'));
+    const exportResponse = await exportInventory(
+      new Request('http://localhost/api/admin/inventory/export'),
+    );
+    const revealResponse = await revealInventory(
+      new Request('http://localhost/api/admin/inventory/reveal?upstreamCodeId=test-id'),
+    );
     const importResponse = await importInventory(
       new Request('http://localhost/api/admin/inventory/import', {
         method: 'POST',
@@ -167,6 +247,8 @@ describe('admin inventory import', () => {
 
     expect(inventoryResponse.status).toBe(401);
     expect(batchResponse.status).toBe(401);
+    expect(exportResponse.status).toBe(401);
+    expect(revealResponse.status).toBe(401);
     expect(importResponse.status).toBe(401);
   });
 });

@@ -20,6 +20,7 @@ export async function GET(request?: Request) {
     data: {
       items: listInventoryItems({
         batchNo,
+        limit: batchNo ? null : 500,
       }),
     },
   });

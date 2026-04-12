@@ -65,6 +65,7 @@ export type ImportInventoryResult = {
 };
 
 export type InventoryListItem = {
+  upstreamCodeId: string;
   batchNo: string | null;
   productName: string;
   upstreamCodeMasked: string;
@@ -72,6 +73,12 @@ export type InventoryListItem = {
   redeemCode: string | null;
   redeemStatus: string | null;
   createdAt: string;
+};
+
+export type InventoryExportResult = {
+  filename: string;
+  csv: string;
+  itemCount: number;
 };
 
 export type BatchListItem = {
@@ -87,7 +94,23 @@ export type BatchListItem = {
 
 type ListInventoryOptions = {
   batchNo?: string | null;
-  limit?: number;
+  limit?: number | null;
+  hasRedeemCode?: boolean;
+};
+
+type InventoryListRow = {
+  upstreamCodeId: string;
+  batchNo: string | null;
+  productName: string;
+  upstreamCodeEncrypted: string;
+  upstreamStatus: string;
+  redeemCode: string | null;
+  redeemStatus: string | null;
+  createdAt: string;
+};
+
+type UpstreamCodeDetailRow = {
+  upstreamCodeEncrypted: string;
 };
 
 function normalizeImportToken(value: string) {
@@ -135,6 +158,36 @@ function createBatchNo() {
   const suffix = randomBytes(2).toString('hex').toUpperCase();
 
   return `BATCH-${timestamp}-${suffix}`;
+}
+
+function normalizeBatchNo(value?: string | null) {
+  return value?.trim() || null;
+}
+
+function escapeCsvField(value: string | null) {
+  const normalizedValue = value ?? '';
+
+  if (/[",\r\n]/.test(normalizedValue)) {
+    return `"${normalizedValue.replace(/"/g, '""')}"`;
+  }
+
+  return normalizedValue;
+}
+
+function createInventoryExportFilename(batchNo?: string | null) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const normalizedBatchNo = normalizeBatchNo(batchNo);
+  const safeBatchNo = normalizedBatchNo?.replace(/[^A-Z0-9_-]+/gi, '-');
+
+  return safeBatchNo
+    ? `zka-inventory-${safeBatchNo}-${timestamp}.csv`
+    : `zka-inventory-${timestamp}.csv`;
+}
+
+function isDeliverableInventoryItem(item: InventoryListItem) {
+  return Boolean(
+    item.redeemCode && item.redeemStatus === 'unused' && item.upstreamStatus === 'bound',
+  );
 }
 
 function findExistingInventory(hash: string) {
@@ -318,42 +371,40 @@ export function listInventoryItems(
   input: ListInventoryOptions = {},
 ): InventoryListItem[] {
   const db = getDatabase();
-  const batchNo = input.batchNo?.trim() || null;
+  const batchNo = normalizeBatchNo(input.batchNo);
   const limit = input.limit ?? 500;
-  const rows = db
-    .prepare<
-      [string | null, string | null, number],
-      {
-        batchNo: string | null;
-        productName: string;
-        upstreamCodeEncrypted: string;
-        upstreamStatus: string;
-        redeemCode: string | null;
-        redeemStatus: string | null;
-        createdAt: string;
-      }
-    >(
-      `
-        SELECT
-          ib.batch_no AS batchNo,
-          p.name AS productName,
-          uc.upstream_code_encrypted AS upstreamCodeEncrypted,
-          uc.status AS upstreamStatus,
-          rc.code AS redeemCode,
-          rc.status AS redeemStatus,
-          uc.created_at AS createdAt
-        FROM upstream_codes uc
-        INNER JOIN products p ON p.id = uc.product_id
-        LEFT JOIN inventory_batches ib ON ib.id = uc.batch_id
-        LEFT JOIN redeem_codes rc ON rc.upstream_code_id = uc.id
-        WHERE (? IS NULL OR ib.batch_no = ?)
-        ORDER BY uc.created_at DESC
-        LIMIT ?
-      `,
-    )
-    .all(batchNo, batchNo, limit);
+  const hasRedeemCode = input.hasRedeemCode ? 1 : 0;
+  const baseQuery = `
+    SELECT
+      uc.id AS upstreamCodeId,
+      ib.batch_no AS batchNo,
+      p.name AS productName,
+      uc.upstream_code_encrypted AS upstreamCodeEncrypted,
+      uc.status AS upstreamStatus,
+      rc.code AS redeemCode,
+      rc.status AS redeemStatus,
+      uc.created_at AS createdAt
+    FROM upstream_codes uc
+    INNER JOIN products p ON p.id = uc.product_id
+    LEFT JOIN inventory_batches ib ON ib.id = uc.batch_id
+    LEFT JOIN redeem_codes rc ON rc.upstream_code_id = uc.id
+    WHERE (? IS NULL OR ib.batch_no = ?)
+      AND (? = 0 OR rc.code IS NOT NULL)
+    ORDER BY uc.created_at DESC
+  `;
+  const rows =
+    limit == null
+      ? db
+          .prepare<[string | null, string | null, number], InventoryListRow>(baseQuery)
+          .all(batchNo, batchNo, hasRedeemCode)
+      : db
+          .prepare<[string | null, string | null, number, number], InventoryListRow>(
+            `${baseQuery}\nLIMIT ?`,
+          )
+          .all(batchNo, batchNo, hasRedeemCode, limit);
 
   return rows.map((row) => ({
+    upstreamCodeId: row.upstreamCodeId,
     batchNo: row.batchNo,
     productName: row.productName,
     upstreamCodeMasked: maskUpstreamCode(decodeUpstreamCode(row.upstreamCodeEncrypted)),
@@ -362,6 +413,71 @@ export function listInventoryItems(
     redeemStatus: row.redeemStatus,
     createdAt: row.createdAt,
   }));
+}
+
+export function revealInventoryUpstreamCode(upstreamCodeId: string) {
+  const normalizedId = upstreamCodeId.trim();
+
+  if (!normalizedId) {
+    throw new InventoryImportError('缺少上游卡密记录 ID');
+  }
+
+  const db = getDatabase();
+  const row = db
+    .prepare<[string], UpstreamCodeDetailRow>(
+      `
+        SELECT upstream_code_encrypted AS upstreamCodeEncrypted
+        FROM upstream_codes
+        WHERE id = ?
+      `,
+    )
+    .get(normalizedId);
+
+  if (!row) {
+    throw new InventoryImportError('未找到对应的上游卡密记录');
+  }
+
+  return decodeUpstreamCode(row.upstreamCodeEncrypted);
+}
+
+export function exportInventoryItems(input: ListInventoryOptions = {}): InventoryExportResult {
+  const items = listInventoryItems({
+    ...input,
+    limit: input.limit ?? null,
+    hasRedeemCode: true,
+  });
+  const lines = [
+    [
+      'batchNo',
+      'productName',
+      'upstreamCodeMasked',
+      'redeemCode',
+      'redeemStatus',
+      'upstreamStatus',
+      'deliverable',
+      'createdAt',
+    ].join(','),
+    ...items.map((item) =>
+      [
+        item.batchNo ?? 'historical',
+        item.productName,
+        item.upstreamCodeMasked,
+        item.redeemCode,
+        item.redeemStatus ?? '',
+        item.upstreamStatus,
+        isDeliverableInventoryItem(item) ? 'yes' : 'no',
+        item.createdAt,
+      ]
+        .map(escapeCsvField)
+        .join(','),
+    ),
+  ];
+
+  return {
+    filename: createInventoryExportFilename(input.batchNo),
+    csv: lines.join('\n'),
+    itemCount: items.length,
+  };
 }
 
 export function listInventoryBatches(limit = 24): BatchListItem[] {

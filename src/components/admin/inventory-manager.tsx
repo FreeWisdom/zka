@@ -28,6 +28,37 @@ const DEFAULT_FORM = {
   generateRedeemCodes: true,
 };
 
+function isDeliverableInventoryItem(
+  item: InventoryListItem,
+): item is InventoryListItem & { redeemCode: string } {
+  return Boolean(
+    item.redeemCode && item.redeemStatus === 'unused' && item.upstreamStatus === 'bound',
+  );
+}
+
+function getExportFilenameFallback(batchNo: string | null) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const safeBatchNo = batchNo?.replace(/[^A-Z0-9_-]+/gi, '-') || 'all';
+
+  return `zka-inventory-${safeBatchNo}-${timestamp}.csv`;
+}
+
+function getExportUrl(batchNo: string | null) {
+  const search = batchNo ? `?batchNo=${encodeURIComponent(batchNo)}` : '';
+
+  return `/api/admin/inventory/export${search}`;
+}
+
+function getRevealUrl(upstreamCodeId: string) {
+  return `/api/admin/inventory/reveal?upstreamCodeId=${encodeURIComponent(upstreamCodeId)}`;
+}
+
+function getDownloadFilename(contentDisposition: string | null, fallback: string) {
+  const matched = contentDisposition?.match(/filename="([^"]+)"/i);
+
+  return matched?.[1] ?? fallback;
+}
+
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
     dateStyle: 'short',
@@ -115,13 +146,30 @@ export function InventoryManager({
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [inventoryActionError, setInventoryActionError] = useState('');
+  const [inventoryActionSuccess, setInventoryActionSuccess] = useState('');
+  const [copyingCodes, setCopyingCodes] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [revealedUpstreamCodes, setRevealedUpstreamCodes] = useState<Record<string, string>>({});
+  const [revealingUpstreamCodeId, setRevealingUpstreamCodeId] = useState<string | null>(null);
+  const [copyingUpstreamCodeId, setCopyingUpstreamCodeId] = useState<string | null>(null);
   const [lastImport, setLastImport] = useState<ImportInventoryResult | null>(null);
   const selectedBatch = batches.find((batch) => batch.batchNo === selectedBatchNo) ?? null;
   const filteredInventory = inventory;
+  const inventoryActionMessage = inventoryActionError || inventoryActionSuccess;
+  const inventoryActionToneClass = inventoryActionError ? 'redeem-error' : 'redeem-success';
+  const generatedRedeemCodes = filteredInventory
+    .filter((item): item is InventoryListItem & { redeemCode: string } => Boolean(item.redeemCode))
+    .map((item) => item.redeemCode);
+  const deliverableRedeemCodes = filteredInventory
+    .filter((item): item is InventoryListItem & { redeemCode: string } => isDeliverableInventoryItem(item))
+    .map((item) => item.redeemCode);
 
   async function handleBatchSelect(batchNo: string) {
     setInventoryLoading(true);
     setErrorMessage('');
+    setInventoryActionError('');
+    setInventoryActionSuccess('');
 
     try {
       const refreshed = await refreshAdminInventory(batchNo);
@@ -129,6 +177,7 @@ export function InventoryManager({
       setInventory(refreshed.inventory);
       setBatches(refreshed.batches);
       setSelectedBatchNo(batchNo);
+      setRevealedUpstreamCodes({});
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '切换批次失败');
     } finally {
@@ -163,6 +212,9 @@ export function InventoryManager({
       setSelectedBatchNo(payload.data.batchNo);
       setLastImport(payload.data);
       setSuccessMessage(payload.message);
+      setInventoryActionError('');
+      setInventoryActionSuccess('');
+      setRevealedUpstreamCodes({});
       setFormState((current) => ({
         ...current,
         codesText: '',
@@ -171,6 +223,137 @@ export function InventoryManager({
       setErrorMessage(error instanceof Error ? error.message : '导入库存失败');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleCopyRedeemCodes() {
+    setCopyingCodes(true);
+    setInventoryActionError('');
+    setInventoryActionSuccess('');
+
+    try {
+      if (!deliverableRedeemCodes.length) {
+        throw new Error('当前批次没有可直接发给用户的内部兑换码');
+      }
+
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('当前浏览器不支持剪贴板复制，请改用导出 CSV');
+      }
+
+      await navigator.clipboard.writeText(deliverableRedeemCodes.join('\n'));
+      setInventoryActionSuccess(`已复制可发码 ${deliverableRedeemCodes.length} 条`);
+    } catch (error) {
+      setInventoryActionError(error instanceof Error ? error.message : '复制内部兑换码失败');
+    } finally {
+      setCopyingCodes(false);
+    }
+  }
+
+  async function handleRevealUpstreamCode(item: InventoryListItem) {
+    if (revealedUpstreamCodes[item.upstreamCodeId]) {
+      setRevealedUpstreamCodes((current) => {
+        const next = { ...current };
+
+        delete next[item.upstreamCodeId];
+
+        return next;
+      });
+      setInventoryActionError('');
+      setInventoryActionSuccess('');
+      return;
+    }
+
+    setRevealingUpstreamCodeId(item.upstreamCodeId);
+    setInventoryActionError('');
+    setInventoryActionSuccess('');
+
+    try {
+      const response = await fetch(getRevealUrl(item.upstreamCodeId), {
+        cache: 'no-store',
+      });
+      const payload = (await response.json()) as ApiResponse<{ upstreamCode: string }>;
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || '查看完整上游卡密失败');
+      }
+
+      setRevealedUpstreamCodes((current) => ({
+        ...current,
+        [item.upstreamCodeId]: payload.data.upstreamCode,
+      }));
+      setInventoryActionSuccess(`已显示完整卡密 ${item.upstreamCodeMasked}`);
+    } catch (error) {
+      setInventoryActionError(error instanceof Error ? error.message : '查看完整上游卡密失败');
+    } finally {
+      setRevealingUpstreamCodeId(null);
+    }
+  }
+
+  async function handleCopyFullUpstreamCode(item: InventoryListItem) {
+    const upstreamCode = revealedUpstreamCodes[item.upstreamCodeId];
+
+    setCopyingUpstreamCodeId(item.upstreamCodeId);
+    setInventoryActionError('');
+    setInventoryActionSuccess('');
+
+    try {
+      if (!upstreamCode) {
+        throw new Error('请先查看完整上游卡密，再执行复制');
+      }
+
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('当前浏览器不支持剪贴板复制');
+      }
+
+      await navigator.clipboard.writeText(upstreamCode);
+      setInventoryActionSuccess(`已复制完整卡密 ${item.upstreamCodeMasked}`);
+    } catch (error) {
+      setInventoryActionError(error instanceof Error ? error.message : '复制完整上游卡密失败');
+    } finally {
+      setCopyingUpstreamCodeId(null);
+    }
+  }
+
+  async function handleExportInventory() {
+    setExportingCsv(true);
+    setInventoryActionError('');
+    setInventoryActionSuccess('');
+
+    try {
+      if (!generatedRedeemCodes.length) {
+        throw new Error('当前批次没有可导出的内部兑换码');
+      }
+
+      const response = await fetch(getExportUrl(selectedBatchNo), {
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json()) as { message?: string };
+
+        throw new Error(payload.message || '导出内部兑换码失败');
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const filename = getDownloadFilename(
+        response.headers.get('content-disposition'),
+        getExportFilenameFallback(selectedBatchNo),
+      );
+
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+
+      setInventoryActionSuccess(`已导出 CSV ${generatedRedeemCodes.length} 条`);
+    } catch (error) {
+      setInventoryActionError(error instanceof Error ? error.message : '导出内部兑换码失败');
+    } finally {
+      setExportingCsv(false);
     }
   }
 
@@ -405,6 +588,48 @@ export function InventoryManager({
             </p>
           </div>
 
+          <div className="admin-inventory-toolbar">
+            <div className="admin-inventory-toolbar-copy">
+              <strong>
+                已生成内部卡密 {generatedRedeemCodes.length} 张，可直接发放 {deliverableRedeemCodes.length}{' '}
+                张
+              </strong>
+              <span>
+                复制只包含当前批次仍可发放的兑换码；导出 CSV 会包含当前批次全部已生成内部卡密及状态。
+              </span>
+            </div>
+
+            <div className="admin-inventory-toolbar-side">
+              {inventoryActionMessage ? (
+                <p
+                  className={`redeem-feedback admin-inventory-feedback-floating ${inventoryActionToneClass}`}
+                  title={inventoryActionMessage}
+                >
+                  {inventoryActionMessage}
+                </p>
+              ) : null}
+
+              <div className="redeem-actions admin-inventory-actions">
+                <button
+                  className="redeem-button redeem-button-secondary"
+                  disabled={copyingCodes || inventoryLoading || !deliverableRedeemCodes.length}
+                  type="button"
+                  onClick={() => void handleCopyRedeemCodes()}
+                >
+                  {copyingCodes ? '复制中...' : `复制可发码 (${deliverableRedeemCodes.length})`}
+                </button>
+                <button
+                  className="redeem-button"
+                  disabled={exportingCsv || inventoryLoading || !generatedRedeemCodes.length}
+                  type="button"
+                  onClick={() => void handleExportInventory()}
+                >
+                  {exportingCsv ? '导出中...' : `导出 CSV (${generatedRedeemCodes.length})`}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {selectedBatch ? (
             <div className="admin-summary-grid admin-summary-grid-compact">
               <div className="admin-summary-card">
@@ -438,9 +663,9 @@ export function InventoryManager({
               <thead>
                 <tr>
                   <th>批次</th>
-                  <th>商品</th>
-                  <th>上游卡密</th>
                   <th>内部卡密</th>
+                  <th>外部卡密</th>
+                  <th>名称</th>
                   <th>上游状态</th>
                   <th>内部状态</th>
                   <th>导入时间</th>
@@ -448,13 +673,78 @@ export function InventoryManager({
               </thead>
               <tbody>
                 {filteredInventory.map((item) => (
-                  <tr key={`${item.batchNo ?? 'none'}-${item.upstreamCodeMasked}-${item.createdAt}`}>
+                  <tr key={item.upstreamCodeId}>
                     <td>{item.batchNo ?? '历史数据'}</td>
-                    <td>{item.productName}</td>
-                    <td>
-                      <code>{item.upstreamCodeMasked}</code>
-                    </td>
                     <td>{item.redeemCode ? <code>{item.redeemCode}</code> : '未生成'}</td>
+                    <td>
+                      <div className="admin-sensitive-cell">
+                        <code className="admin-upstream-code-value">
+                          {revealedUpstreamCodes[item.upstreamCodeId] ?? item.upstreamCodeMasked}
+                        </code>
+                        <div className="admin-inline-actions">
+                          <button
+                            aria-label={
+                              revealingUpstreamCodeId === item.upstreamCodeId
+                                ? '正在读取完整外部卡密'
+                                : revealedUpstreamCodes[item.upstreamCodeId]
+                                  ? '隐藏完整外部卡密'
+                                  : '查看完整外部卡密'
+                            }
+                            className="admin-mini-button admin-icon-button"
+                            disabled={revealingUpstreamCodeId === item.upstreamCodeId}
+                            title={
+                              revealingUpstreamCodeId === item.upstreamCodeId
+                                ? '正在读取完整外部卡密'
+                                : revealedUpstreamCodes[item.upstreamCodeId]
+                                  ? '隐藏完整外部卡密'
+                                  : '查看完整外部卡密'
+                            }
+                            type="button"
+                            onClick={() => void handleRevealUpstreamCode(item)}
+                          >
+                            <span
+                              aria-hidden="true"
+                              className={`admin-icon ${
+                                revealingUpstreamCodeId === item.upstreamCodeId
+                                  ? 'admin-icon-spinner'
+                                  : revealedUpstreamCodes[item.upstreamCodeId]
+                                    ? 'admin-icon-eye-off'
+                                    : 'admin-icon-eye'
+                              }`}
+                            />
+                          </button>
+                          <button
+                            aria-label={
+                              copyingUpstreamCodeId === item.upstreamCodeId
+                                ? '正在复制完整外部卡密'
+                                : '复制完整外部卡密'
+                            }
+                            className="admin-mini-button admin-icon-button"
+                            disabled={
+                              copyingUpstreamCodeId === item.upstreamCodeId ||
+                              !revealedUpstreamCodes[item.upstreamCodeId]
+                            }
+                            title={
+                              copyingUpstreamCodeId === item.upstreamCodeId
+                                ? '正在复制完整外部卡密'
+                                : '复制完整外部卡密'
+                            }
+                            type="button"
+                            onClick={() => void handleCopyFullUpstreamCode(item)}
+                          >
+                            <span
+                              aria-hidden="true"
+                              className={`admin-icon ${
+                                copyingUpstreamCodeId === item.upstreamCodeId
+                                  ? 'admin-icon-spinner'
+                                  : 'admin-icon-copy'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{item.productName}</td>
                     <td>{getInventoryStatusLabel(item.upstreamStatus)}</td>
                     <td>{item.redeemStatus ? getInventoryStatusLabel(item.redeemStatus) : '未生成'}</td>
                     <td>{formatDateTime(item.createdAt)}</td>
@@ -473,7 +763,8 @@ export function InventoryManager({
           <li>默认按上游卡密去重，重复导入不会重复建库存。</li>
           <li>勾选“立即生成”时，会同步生成内部兑换码并绑定到该上游卡密。</li>
           <li>右侧库存默认展示当前选中批次，便于连续检查一整批卡密。</li>
-          <li>后台登录和权限控制还没接入，这一页先作为本地管理入口使用。</li>
+          <li>可直接复制当前批次可发放的内部兑换码，或导出当前批次的内部兑换码 CSV。</li>
+          <li>完整上游卡密默认隐藏，管理员需按条点击“查看完整”后才会解密展示。</li>
         </ul>
       </section>
     </div>

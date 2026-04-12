@@ -397,7 +397,7 @@ code {
 .admin-layout {
   display: grid;
   gap: 24px;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: 262px minmax(0, 1fr);
   align-items: start;
 }
 
@@ -433,6 +433,63 @@ code {
   margin-top: 20px;
 }
 
+.admin-inventory-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.admin-inventory-toolbar-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-inventory-toolbar-copy strong {
+  font-size: 1rem;
+}
+
+.admin-inventory-toolbar-copy span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.admin-inventory-actions {
+  margin-top: 0;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.admin-inventory-toolbar-side {
+  position: relative;
+  display: grid;
+  justify-items: end;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.admin-inventory-feedback-floating {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  max-width: min(44vw, 420px);
+  margin: 0;
+  padding: 7px 12px;
+  border: 1px solid rgba(65, 57, 47, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.96);
+  box-shadow: 0 10px 26px rgba(64, 46, 28, 0.12);
+  font-size: 0.88rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  z-index: 2;
+}
+
 .admin-summary-card {
   display: grid;
   gap: 6px;
@@ -456,7 +513,7 @@ code {
 }
 
 .admin-table-wrap-tall {
-  max-height: 760px;
+  max-height: min(1120px, calc(100vh - 140px));
   overflow: auto;
 }
 
@@ -468,6 +525,69 @@ code {
 
 .admin-table-inventory {
   min-width: 1080px;
+}
+
+.admin-table-inventory th,
+.admin-table-inventory td {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.admin-table-inventory th *,
+.admin-table-inventory td * {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.admin-table-inventory th {
+  padding: 9px 6px;
+  font-size: 0.76rem;
+  letter-spacing: 0.03em;
+}
+
+.admin-table-inventory td {
+  padding: 9px 6px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.admin-table-inventory code {
+  white-space: nowrap;
+  word-break: normal;
+}
+
+.admin-table-inventory .admin-upstream-code-value {
+  display: inline-block;
+  width: 18ch;
+  min-width: 18ch;
+  text-align: left;
+}
+
+.admin-table-inventory .admin-sensitive-cell {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.admin-table-inventory .admin-inline-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.admin-table-inventory .admin-mini-button {
+  padding: 4px 8px;
+  font-size: 0.74rem;
+}
+
+.admin-table-inventory .admin-icon-button {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
 }
 
 .admin-table thead th {
@@ -498,6 +618,123 @@ code {
   line-height: 1.6;
 }
 
+.admin-sensitive-cell {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-mini-button {
+  border: 1px solid rgba(65, 57, 47, 0.16);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.admin-icon-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  line-height: 0;
+}
+
+.admin-icon {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  color: currentColor;
+}
+
+.admin-icon-eye::before {
+  content: '';
+  position: absolute;
+  inset: 2px 0;
+  border: 1.6px solid currentColor;
+  border-radius: 70% / 55%;
+}
+
+.admin-icon-eye::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.admin-icon-eye-off::before {
+  content: '';
+  position: absolute;
+  inset: 2px 0;
+  border: 1.6px solid currentColor;
+  border-radius: 70% / 55%;
+}
+
+.admin-icon-eye-off::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 1.6px;
+  background: currentColor;
+  transform: translate(-50%, -50%) rotate(-35deg);
+  transform-origin: center;
+}
+
+.admin-icon-copy::before,
+.admin-icon-copy::after {
+  content: '';
+  position: absolute;
+  border: 1.6px solid currentColor;
+  border-radius: 3px;
+  background: transparent;
+}
+
+.admin-icon-copy::before {
+  inset: 1px 3px 3px 1px;
+}
+
+.admin-icon-copy::after {
+  inset: 4px 1px 1px 4px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.admin-icon-spinner {
+  border: 1.8px solid rgba(65, 57, 47, 0.18);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: admin-icon-spin 0.8s linear infinite;
+}
+
+.admin-mini-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@keyframes admin-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .admin-badge {
   display: inline-flex;
   align-items: center;
@@ -519,28 +756,51 @@ code {
 .admin-batch-panel {
   position: sticky;
   top: 24px;
+  width: 100%;
+  max-width: 262px;
+  justify-self: start;
+  padding: 20px 18px;
+}
+
+.admin-batch-panel .redeem-card-header {
+  gap: 4px;
+}
+
+.admin-batch-panel .redeem-card-header h2 {
+  font-size: clamp(1.55rem, 1.65vw, 2rem);
+  line-height: 1.08;
+}
+
+.admin-batch-panel .redeem-card-header p {
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 .admin-batch-list {
   display: grid;
-  gap: 12px;
-  margin-top: 18px;
+  gap: 10px;
+  margin-top: 16px;
   max-height: 760px;
   overflow: auto;
 }
 
 .admin-batch-item {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
-  padding: 16px;
+  padding: 13px 14px;
   border: 1px solid rgba(65, 57, 47, 0.12);
-  border-radius: 18px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.58);
   color: inherit;
   text-align: left;
   cursor: pointer;
   transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.admin-batch-item strong {
+  font-size: 0.84rem;
+  line-height: 1.25;
 }
 
 .admin-batch-item:hover {
@@ -550,7 +810,8 @@ code {
 
 .admin-batch-item span {
   color: var(--muted);
-  line-height: 1.5;
+  font-size: 0.86rem;
+  line-height: 1.4;
 }
 
 .admin-batch-item-active {
@@ -560,7 +821,7 @@ code {
 }
 
 .admin-inventory-card {
-  min-height: 860px;
+  min-height: min(1240px, calc(100vh - 92px));
 }
 
 .admin-empty-state {
@@ -658,6 +919,29 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .admin-inventory-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-inventory-actions {
+    justify-content: stretch;
+  }
+
+  .admin-inventory-toolbar-side {
+    width: 100%;
+    justify-items: stretch;
+  }
+
+  .admin-inventory-actions > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-inventory-feedback-floating {
+    max-width: min(82vw, 360px);
+  }
+
   .admin-shell {
     width: min(100% - 20px, 1440px);
   }
@@ -694,6 +978,9 @@ code {
 
   .admin-batch-panel {
     position: static;
+    width: min(100%, 540px);
+    max-width: none;
+    justify-self: start;
   }
 
   .admin-batch-list,
