@@ -560,8 +560,9 @@ code {
 
 .admin-table-inventory .admin-upstream-code-value {
   display: inline-block;
-  width: 18ch;
   min-width: 18ch;
+  width: max-content;
+  max-width: none;
   text-align: left;
 }
 
@@ -570,10 +571,12 @@ code {
   align-items: center;
   flex-wrap: nowrap;
   gap: 6px;
+  min-width: max-content;
 }
 
 .admin-table-inventory .admin-inline-actions {
   display: inline-flex;
+  flex: 0 0 auto;
   flex-wrap: nowrap;
   gap: 6px;
 }
