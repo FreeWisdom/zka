@@ -92,6 +92,20 @@ export function decodeUpstreamCode(encodedValue: string) {
   ]).toString('utf8');
 }
 
+export function tryDecodeUpstreamCode(encodedValue: string) {
+  try {
+    return decodeUpstreamCode(encodedValue);
+  } catch {
+    return null;
+  }
+}
+
+export function maskStoredUpstreamCode(encodedValue: string) {
+  const decodedValue = tryDecodeUpstreamCode(encodedValue);
+
+  return decodedValue ? maskUpstreamCode(decodedValue) : '[解密失败]';
+}
+
 export function hashUpstreamCode(value: string) {
   return createHash('sha256').update(normalizeUpstreamCode(value)).digest('hex');
 }

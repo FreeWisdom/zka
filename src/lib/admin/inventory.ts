@@ -8,6 +8,7 @@ import {
   decodeUpstreamCode,
   encodeUpstreamCode,
   hashUpstreamCode,
+  maskStoredUpstreamCode,
   maskUpstreamCode,
   normalizeUpstreamCode,
 } from '@/lib/redeem/upstream-code';
@@ -265,7 +266,7 @@ export async function importInventoryBatch(
       if (existingInventory?.redeemCode) {
         result.existingCount += 1;
         result.items.push({
-          upstreamCodeMasked: maskUpstreamCode(decodeUpstreamCode(existingInventory.upstreamCodeEncrypted)),
+          upstreamCodeMasked: maskStoredUpstreamCode(existingInventory.upstreamCodeEncrypted),
           redeemCode: existingInventory.redeemCode,
           status: 'existing',
           message: '已存在绑定关系，沿用原内部卡密',
@@ -302,7 +303,7 @@ export async function importInventoryBatch(
       if (existingInventory) {
         result.existingCount += 1;
         result.items.push({
-          upstreamCodeMasked: maskUpstreamCode(decodeUpstreamCode(existingInventory.upstreamCodeEncrypted)),
+          upstreamCodeMasked: maskStoredUpstreamCode(existingInventory.upstreamCodeEncrypted),
           redeemCode: null,
           status: 'existing',
           message: '库存已存在，本次未重复导入',
@@ -419,7 +420,7 @@ export async function listInventoryItems(
     upstreamCodeId: row.upstreamCodeId,
     batchNo: row.batchNo,
     productName: row.productName,
-    upstreamCodeMasked: maskUpstreamCode(decodeUpstreamCode(row.upstreamCodeEncrypted)),
+    upstreamCodeMasked: maskStoredUpstreamCode(row.upstreamCodeEncrypted),
     upstreamStatus: row.upstreamStatus,
     redeemCode: row.redeemCode,
     redeemStatus: row.redeemStatus,
@@ -449,7 +450,13 @@ export async function revealInventoryUpstreamCode(upstreamCodeId: string) {
     throw new InventoryImportError('未找到对应的上游卡密记录');
   }
 
-  return decodeUpstreamCode(row.upstreamCodeEncrypted);
+  try {
+    return decodeUpstreamCode(row.upstreamCodeEncrypted);
+  } catch {
+    throw new InventoryImportError(
+      '当前上游卡密无法解密，请确认部署环境中的 CARD_ENCRYPTION_KEY 与写入数据库时使用的值一致',
+    );
+  }
 }
 
 export async function exportInventoryItems(
