@@ -31,6 +31,7 @@ const globalForPostgres = globalThis as typeof globalThis & {
 
 const transactionClientStorage = new AsyncLocalStorage<DatabaseClient>();
 const placeholderCache = new Map<string, string>();
+const rowProxyCache = new WeakMap<object, object>();
 
 type QueryExecutor = {
   unsafe: (query: string, params?: unknown[]) => Promise<
@@ -49,6 +50,39 @@ type RootExecutor = QueryExecutor & {
     callback: (transactionSql: QueryExecutor) => Promise<Result>,
   ) => Promise<Result>;
 };
+
+function normalizeResultRow<Row>(row: Row): Row {
+  if (!row || typeof row !== 'object') {
+    return row;
+  }
+
+  const cachedRow = rowProxyCache.get(row as object);
+
+  if (cachedRow) {
+    return cachedRow as Row;
+  }
+
+  const proxiedRow = new Proxy(row as Record<string, unknown>, {
+    get(target, property, receiver) {
+      if (typeof property !== 'string' || Reflect.has(target, property)) {
+        return Reflect.get(target, property, receiver);
+      }
+
+      return Reflect.get(target, property.toLowerCase(), receiver);
+    },
+    has(target, property) {
+      if (typeof property !== 'string') {
+        return Reflect.has(target, property);
+      }
+
+      return Reflect.has(target, property) || Reflect.has(target, property.toLowerCase());
+    },
+  });
+
+  rowProxyCache.set(row as object, proxiedRow);
+
+  return proxiedRow as Row;
+}
 
 function convertSqlitePlaceholders(query: string) {
   const cachedQuery = placeholderCache.get(query);
@@ -84,7 +118,7 @@ class DatabaseClient implements DatabaseClientShape {
           params as unknown[],
         );
 
-        return [...rows] as Row[];
+        return rows.map((row) => normalizeResultRow(row as Row));
       },
       get: async (...params: Params) => {
         const rows = await this.sqlClient.unsafe(
@@ -92,7 +126,9 @@ class DatabaseClient implements DatabaseClientShape {
           params as unknown[],
         );
 
-        return rows[0] as Row | undefined;
+        const row = rows[0];
+
+        return row ? normalizeResultRow(row as Row) : undefined;
       },
       run: async (...params: Params) => {
         const result = await this.sqlClient.unsafe(
