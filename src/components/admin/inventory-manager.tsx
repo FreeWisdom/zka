@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { parseInventoryCodesText } from '@/lib/admin/inventory-import-parser';
 import type {
   BatchListItem,
   ImportInventoryResult,
@@ -149,6 +150,8 @@ export function InventoryManager({
   const [copyingUpstreamCodeId, setCopyingUpstreamCodeId] = useState<string | null>(null);
   const [lastImport, setLastImport] = useState<ImportInventoryResult | null>(null);
   const selectedBatch = batches.find((batch) => batch.batchNo === selectedBatchNo) ?? null;
+  const parsedCodesInput = parseInventoryCodesText(formState.codesText);
+  const duplicateCodePreview = parsedCodesInput.duplicateCodes.slice(0, 3).join('、');
   const filteredInventory = inventory;
   const inventoryActionMessage = inventoryActionError || inventoryActionSuccess;
   const inventoryActionToneClass = inventoryActionError ? 'redeem-error' : 'redeem-success';
@@ -199,11 +202,12 @@ export function InventoryManager({
         throw new Error(payload.message || '导入库存失败');
       }
 
-      const refreshed = await refreshAdminInventory(payload.data.batchNo);
+      const nextBatchNo = payload.data.batchNo ?? selectedBatchNo;
+      const refreshed = await refreshAdminInventory(nextBatchNo);
 
       setInventory(refreshed.inventory);
       setBatches(refreshed.batches);
-      setSelectedBatchNo(payload.data.batchNo);
+      setSelectedBatchNo(nextBatchNo);
       setLastImport(payload.data);
       setSuccessMessage(payload.message);
       setInventoryActionError('');
@@ -454,6 +458,17 @@ export function InventoryManager({
             />
           </div>
 
+          {parsedCodesInput.duplicateInputCount ? (
+            <p className="redeem-feedback redeem-warning">
+              当前输入里检测到 {parsedCodesInput.duplicateInputCount} 条重复卡密，导入时会自动跳过，不会重复落库
+              {duplicateCodePreview
+                ? `。重复示例：${duplicateCodePreview}${
+                    parsedCodesInput.duplicateCodes.length > 3 ? ' 等' : ''
+                  }`
+                : ''}
+            </p>
+          ) : null}
+
           <label className="admin-checkbox admin-import-checkbox">
             <input
               checked={formState.generateRedeemCodes}
@@ -483,7 +498,10 @@ export function InventoryManager({
         <section className="redeem-card">
           <div className="redeem-card-header">
             <span className="redeem-kicker">最近一次导入</span>
-            <h2>批次 {lastImport.batchNo}</h2>
+            <h2>{lastImport.batchNo ? `批次 ${lastImport.batchNo}` : '未创建新批次'}</h2>
+            {!lastImport.batchNo ? (
+              <p>本次输入没有新增库存，重复卡密已跳过，历史库存变更直接写回原记录。</p>
+            ) : null}
           </div>
 
           <div className="admin-summary-grid">

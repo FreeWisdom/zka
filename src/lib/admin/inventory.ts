@@ -4,27 +4,15 @@ import {
   createRedeemCodeForUpstream,
   ensureProduct,
 } from '@/lib/redeem/code-pairing';
+import { parseInventoryCodesText } from '@/lib/admin/inventory-import-parser';
 import {
   decodeUpstreamCode,
   encodeUpstreamCode,
   hashUpstreamCode,
   maskStoredUpstreamCode,
   maskUpstreamCode,
-  normalizeUpstreamCode,
 } from '@/lib/redeem/upstream-code';
 import { getDatabase } from '@/lib/storage/database';
-
-const IMPORT_HEADER_TOKENS = new Set([
-  'card',
-  'cardcode',
-  'cdkey',
-  'code',
-  'codes',
-  'upstreamcode',
-  'upstreamcodes',
-  '上游卡密',
-  '卡密',
-]);
 
 type ExistingInventoryRow = {
   upstreamCodeId: string;
@@ -53,7 +41,7 @@ export type ImportInventoryItem = {
 };
 
 export type ImportInventoryResult = {
-  batchNo: string;
+  batchNo: string | null;
   productName: string;
   generateRedeemCodes: boolean;
   receivedCount: number;
@@ -113,46 +101,6 @@ type InventoryListRow = {
 type UpstreamCodeDetailRow = {
   upstreamCodeEncrypted: string;
 };
-
-function normalizeImportToken(value: string) {
-  return value.trim().replace(/^['"]+|['"]+$/g, '');
-}
-
-function isHeaderToken(value: string) {
-  const normalized = value.toLowerCase().replace(/[\s_-]+/g, '');
-
-  return IMPORT_HEADER_TOKENS.has(normalized);
-}
-
-function parseCodesText(codesText: string) {
-  const rawTokens = codesText
-    .split(/[\n\r,;\t]+/)
-    .map(normalizeImportToken)
-    .filter(Boolean)
-    .filter((token) => !isHeaderToken(token));
-
-  const codes: string[] = [];
-  const seen = new Set<string>();
-  let duplicateInputCount = 0;
-
-  for (const token of rawTokens) {
-    const normalizedCode = normalizeUpstreamCode(token);
-
-    if (seen.has(normalizedCode)) {
-      duplicateInputCount += 1;
-      continue;
-    }
-
-    seen.add(normalizedCode);
-    codes.push(normalizedCode);
-  }
-
-  return {
-    receivedCount: rawTokens.length,
-    duplicateInputCount,
-    codes,
-  };
-}
 
 function createBatchNo() {
   const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
@@ -216,7 +164,7 @@ async function findExistingInventory(hash: string) {
 export async function importInventoryBatch(
   input: ImportInventoryInput,
 ): Promise<ImportInventoryResult> {
-  const parsed = parseCodesText(input.codesText);
+  const parsed = parseInventoryCodesText(input.codesText);
 
   if (parsed.codes.length === 0) {
     throw new InventoryImportError('未解析到可导入的上游卡密');
@@ -229,7 +177,7 @@ export async function importInventoryBatch(
   const batchNo = createBatchNo();
   const generateRedeemCodes = input.generateRedeemCodes ?? true;
   const result: ImportInventoryResult = {
-    batchNo,
+    batchNo: null,
     productName: product.name,
     generateRedeemCodes,
     receivedCount: parsed.receivedCount,
@@ -245,19 +193,27 @@ export async function importInventoryBatch(
   const remark = input.remark?.trim() || null;
 
   await db.transaction(async () => {
-    await db.prepare(
-      `
-        INSERT INTO inventory_batches (
-          id,
-          batch_no,
-          supplier_name,
-          product_id,
-          remark,
-          quantity,
-          created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `,
-    ).run(batchId, batchNo, supplierName, product.id, remark, 0, now);
+    const ensureBatchCreated = async () => {
+      if (result.batchNo) {
+        return;
+      }
+
+      await db.prepare(
+        `
+          INSERT INTO inventory_batches (
+            id,
+            batch_no,
+            supplier_name,
+            product_id,
+            remark,
+            quantity,
+            created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run(batchId, batchNo, supplierName, product.id, remark, 0, now);
+
+      result.batchNo = batchNo;
+    };
 
     for (const upstreamCode of parsed.codes) {
       const upstreamCodeHash = hashUpstreamCode(upstreamCode);
@@ -314,6 +270,8 @@ export async function importInventoryBatch(
       const upstreamCodeId = randomUUID();
       const upstreamStatus = generateRedeemCodes ? 'bound' : 'in_stock';
 
+      await ensureBatchCreated();
+
       await db.prepare(
         `
           INSERT INTO upstream_codes (
@@ -358,13 +316,15 @@ export async function importInventoryBatch(
       });
     }
 
-    await db.prepare(
-      `
-        UPDATE inventory_batches
-        SET quantity = ?
-        WHERE id = ?
-      `,
-    ).run(result.importedCount, batchId);
+    if (result.batchNo) {
+      await db.prepare(
+        `
+          UPDATE inventory_batches
+          SET quantity = ?
+          WHERE id = ?
+        `,
+      ).run(result.importedCount, batchId);
+    }
   })();
 
   return result;

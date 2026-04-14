@@ -9,9 +9,24 @@ import {
 } from '@/lib/admin/auth';
 import {
   InventoryImportError,
+  type ImportInventoryResult,
   importInventoryBatch,
 } from '@/lib/admin/inventory';
 import { importInventorySchema } from '@/lib/validation/redeem';
+
+function getInventoryImportMessage(result: ImportInventoryResult) {
+  if (result.importedCount > 0) {
+    return result.generateRedeemCodes
+      ? '上游卡密已导入，并生成内部卡密'
+      : '上游卡密已导入库存';
+  }
+
+  if (result.generatedCount > 0) {
+    return '未新增库存，已为历史库存补发内部卡密';
+  }
+
+  return '未导入新卡密，重复卡密已跳过';
+}
 
 export async function POST(request: Request) {
   if (!isAdminRequestIpAllowed(request)) {
@@ -28,9 +43,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: result.generateRedeemCodes
-        ? '上游卡密已导入，并生成内部卡密'
-        : '上游卡密已导入库存',
+      message: getInventoryImportMessage(result),
       data: result,
     });
   } catch (error) {

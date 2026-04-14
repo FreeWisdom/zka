@@ -40,7 +40,7 @@ describe('admin inventory import', () => {
   });
 
   it('imports upstream codes and generates redeem codes by default', async () => {
-    const result = importInventoryBatch({
+    const result = await importInventoryBatch({
       productName: 'ChatGPT Plus 月卡',
       productSlug: 'chatgpt-plus-1m',
       codesText: ['UPSTREAM-IMPORT-0001', 'UPSTREAM-IMPORT-0001', 'UPSTREAM-IMPORT-0002'].join('\n'),
@@ -55,8 +55,8 @@ describe('admin inventory import', () => {
     });
     expect(result.items[0]?.redeemCode).toMatch(/^GIFT-/);
 
-    const inventory = listInventoryItems();
-    const batches = listInventoryBatches();
+    const inventory = await listInventoryItems();
+    const batches = await listInventoryBatches();
 
     expect(inventory).toHaveLength(2);
     expect(inventory.every((item) => item.redeemCode?.startsWith('GIFT-'))).toBe(true);
@@ -68,7 +68,7 @@ describe('admin inventory import', () => {
   });
 
   it('can generate a redeem code for previously imported stock', async () => {
-    const imported = importInventoryBatch({
+    const imported = await importInventoryBatch({
       productName: 'ChatGPT Plus 月卡',
       productSlug: 'chatgpt-plus-1m',
       codesText: 'UPSTREAM-STOCK-0001',
@@ -90,11 +90,37 @@ describe('admin inventory import', () => {
     });
     expect(paired.code).toMatch(/^GIFT-/);
 
-    const inventory = listInventoryItems();
+    const inventory = await listInventoryItems();
     expect(inventory[0]).toMatchObject({
       upstreamStatus: 'bound',
       redeemCode: paired.code,
     });
+  });
+
+  it('does not create an empty batch when repeated import only contains existing codes', async () => {
+    const firstImport = await importInventoryBatch({
+      productName: 'ChatGPT Plus 月卡',
+      productSlug: 'chatgpt-plus-1m',
+      codesText: 'UPSTREAM-EXISTING-0001',
+    });
+    const beforeBatches = await listInventoryBatches();
+
+    const secondImport = await importInventoryBatch({
+      productName: 'ChatGPT Plus 月卡',
+      productSlug: 'chatgpt-plus-1m',
+      codesText: 'UPSTREAM-EXISTING-0001',
+    });
+    const afterBatches = await listInventoryBatches();
+    const inventory = await listInventoryItems();
+
+    expect(firstImport.batchNo).toBeTruthy();
+    expect(secondImport).toMatchObject({
+      batchNo: null,
+      importedCount: 0,
+      existingCount: 1,
+    });
+    expect(afterBatches).toHaveLength(beforeBatches.length);
+    expect(inventory).toHaveLength(1);
   });
 
   it('exposes import, inventory and batch APIs', async () => {
@@ -149,12 +175,12 @@ describe('admin inventory import', () => {
   });
 
   it('exports generated redeem codes as csv for a selected batch', async () => {
-    const generatedBatch = importInventoryBatch({
+    const generatedBatch = await importInventoryBatch({
       productName: 'ChatGPT Plus 月卡',
       productSlug: 'chatgpt-plus-1m',
       codesText: ['UPSTREAM-EXPORT-0001', 'UPSTREAM-EXPORT-0002'].join('\n'),
     });
-    importInventoryBatch({
+    await importInventoryBatch({
       productName: 'ChatGPT Plus 月卡',
       productSlug: 'chatgpt-plus-1m',
       codesText: 'UPSTREAM-EXPORT-STOCK-0001',
@@ -184,13 +210,13 @@ describe('admin inventory import', () => {
   });
 
   it('reveals a full upstream code for an authenticated admin', async () => {
-    importInventoryBatch({
+    await importInventoryBatch({
       productName: 'ChatGPT Plus 月卡',
       productSlug: 'chatgpt-plus-1m',
       codesText: 'REAL-UPSTREAM-0001',
     });
 
-    const inventory = listInventoryItems();
+    const inventory = await listInventoryItems();
     const response = await revealInventory(
       createAdminRequest(
         `/api/admin/inventory/reveal?upstreamCodeId=${encodeURIComponent(

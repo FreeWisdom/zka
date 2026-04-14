@@ -23,7 +23,7 @@ async function createFixtureCode(
   const now = new Date().toISOString();
   const upstreamCodeId = randomUUID();
 
-  db.prepare(
+  await db.prepare(
     `
       INSERT INTO upstream_codes (
         id,
@@ -45,7 +45,7 @@ async function createFixtureCode(
     now,
   );
 
-  db.prepare(
+  await db.prepare(
     `
       INSERT INTO redeem_codes (
         id,
@@ -77,7 +77,7 @@ async function createFixtureCode(
 export async function resetDatabase() {
   const db = getDatabase();
 
-  db.exec(`
+  await db.exec(`
     DELETE FROM redeem_requests;
     DELETE FROM redeem_codes;
     DELETE FROM upstream_codes;
@@ -96,7 +96,7 @@ export async function seedRedeemFixtures() {
     description: 'zka 测试商品',
   };
 
-  db.prepare(
+  await db.prepare(
     `
       INSERT INTO products (id, name, slug, description, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)

@@ -263,6 +263,10 @@ code {
   color: var(--success);
 }
 
+.redeem-warning {
+  color: var(--warning);
+}
+
 .redeem-result-meta {
   display: flex;
   flex-wrap: wrap;
