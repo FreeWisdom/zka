@@ -375,7 +375,18 @@ export async function listInventoryItems(
   const db = getDatabase();
   const batchNo = normalizeBatchNo(input.batchNo);
   const limit = input.limit ?? 500;
-  const hasRedeemCode = input.hasRedeemCode ? 1 : 0;
+  const params: Array<string | number> = [];
+  const whereClauses: string[] = [];
+
+  if (batchNo) {
+    whereClauses.push('ib.batch_no = ?');
+    params.push(batchNo);
+  }
+
+  if (input.hasRedeemCode) {
+    whereClauses.push('rc.code IS NOT NULL');
+  }
+
   const baseQuery = `
     SELECT
       uc.id AS upstreamCodeId,
@@ -390,20 +401,19 @@ export async function listInventoryItems(
     INNER JOIN products p ON p.id = uc.product_id
     LEFT JOIN inventory_batches ib ON ib.id = uc.batch_id
     LEFT JOIN redeem_codes rc ON rc.upstream_code_id = uc.id
-    WHERE (? IS NULL OR ib.batch_no = ?)
-      AND (? = 0 OR rc.code IS NOT NULL)
+    ${whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : ''}
     ORDER BY uc.created_at DESC
   `;
   const rows =
     limit == null
       ? await db
-          .prepare<[string | null, string | null, number], InventoryListRow>(baseQuery)
-          .all(batchNo, batchNo, hasRedeemCode)
+          .prepare<Array<string | number>, InventoryListRow>(baseQuery)
+          .all(...params)
       : await db
-          .prepare<[string | null, string | null, number, number], InventoryListRow>(
+          .prepare<Array<string | number>, InventoryListRow>(
             `${baseQuery}\nLIMIT ?`,
           )
-          .all(batchNo, batchNo, hasRedeemCode, limit);
+          .all(...params, limit);
 
   return rows.map((row) => ({
     upstreamCodeId: row.upstreamCodeId,
