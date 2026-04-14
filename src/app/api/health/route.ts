@@ -9,7 +9,7 @@ export async function GET() {
 
   try {
     const db = database.getDatabase();
-    db.prepare('SELECT 1 AS ok').get();
+    await db.prepare('SELECT 1 AS ok').get();
 
     return NextResponse.json({
       success: true,
@@ -23,7 +23,8 @@ export async function GET() {
         },
         database: {
           status: 'ok',
-          path: environment.databasePath,
+          provider: 'postgres',
+          configured: environment.databaseUrlConfigured,
         },
         config: {
           adminPasswordConfigured: environment.adminPasswordConfigured,
@@ -47,11 +48,12 @@ export async function GET() {
             status: 'ok',
             nodeEnv: environment.nodeEnv,
           },
-          database: {
-            status: 'error',
-            path: environment.databasePath,
-            message,
-          },
+        database: {
+          status: 'error',
+          provider: 'postgres',
+          configured: environment.databaseUrlConfigured,
+          message,
+        },
           config: {
             adminPasswordConfigured: environment.adminPasswordConfigured,
             upstreamConfigured: environment.upstreamConfigured,

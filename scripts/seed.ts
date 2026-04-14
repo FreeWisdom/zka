@@ -1,9 +1,11 @@
+import './load-env';
+
 import { randomUUID } from 'node:crypto';
 
 import { encodeUpstreamCode, hashUpstreamCode } from '@/lib/redeem/upstream-code';
-import { getDatabase } from '@/lib/storage/database';
+import { closeDatabaseConnections, getDatabase } from '@/lib/storage/database';
 
-function insertFixtureCode(input: {
+async function insertFixtureCode(input: {
   productId: string;
   code: string;
   redeemStatus: string;
@@ -14,7 +16,7 @@ function insertFixtureCode(input: {
   const now = new Date().toISOString();
   const upstreamCodeId = randomUUID();
 
-  db.prepare(
+  await db.prepare(
     `
       INSERT INTO upstream_codes (
         id,
@@ -36,7 +38,7 @@ function insertFixtureCode(input: {
     now,
   );
 
-  db.prepare(
+  await db.prepare(
     `
       INSERT INTO redeem_codes (
         id,
@@ -75,7 +77,7 @@ async function main() {
     description: 'zka 测试商品',
   };
 
-  db.exec(`
+  await db.exec(`
     DELETE FROM redeem_requests;
     DELETE FROM redeem_codes;
     DELETE FROM upstream_codes;
@@ -83,14 +85,14 @@ async function main() {
     DELETE FROM products;
   `);
 
-  db.prepare(
+  await db.prepare(
     `
       INSERT INTO products (id, name, slug, description, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `,
   ).run(product.id, product.name, product.slug, product.description, now, now);
 
-  [
+  for (const fixture of [
     {
       code: 'GIFT-VALID-0001',
       redeemStatus: 'unused',
@@ -121,12 +123,12 @@ async function main() {
       upstreamStatus: 'invalid',
       rawUpstreamCode: 'UPSTREAM-INVALID-0001',
     },
-  ].forEach((fixture) =>
-    insertFixtureCode({
+  ]) {
+    await insertFixtureCode({
       productId: product.id,
       ...fixture,
-    }),
-  );
+    });
+  }
 
   console.log('Available demo codes:');
   console.log('- GIFT-VALID-0001 => success');
@@ -136,4 +138,6 @@ async function main() {
   console.log('- GIFT-BROKEN-0001 => invalid upstream');
 }
 
-void main();
+void main().finally(async () => {
+  await closeDatabaseConnections();
+});

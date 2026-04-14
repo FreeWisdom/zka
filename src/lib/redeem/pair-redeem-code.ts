@@ -19,7 +19,9 @@ type ExistingUpstreamRow = {
   upstreamCodeEncrypted: string;
 };
 
-function findExistingPair(upstreamCodeHash: string): ExistingUpstreamRow | undefined {
+async function findExistingPair(
+  upstreamCodeHash: string,
+): Promise<ExistingUpstreamRow | undefined> {
   const db = getDatabase();
 
   return db
@@ -43,16 +45,16 @@ function findExistingPair(upstreamCodeHash: string): ExistingUpstreamRow | undef
     .get(upstreamCodeHash);
 }
 
-function insertNewPair(input: PairRedeemCodeInput) {
+async function insertNewPair(input: PairRedeemCodeInput) {
   const db = getDatabase();
   const now = new Date().toISOString();
   const normalizedUpstreamCode = normalizeUpstreamCode(input.upstreamCode);
-  const product = ensureProduct(input);
+  const product = await ensureProduct(input);
   const upstreamCodeId = randomUUID();
   let redeemCode = '';
 
-  const transaction = db.transaction(() => {
-    db.prepare(
+  const transaction = db.transaction(async () => {
+    await db.prepare(
       `
         INSERT INTO upstream_codes (
           id,
@@ -74,14 +76,14 @@ function insertNewPair(input: PairRedeemCodeInput) {
       now,
     );
 
-    redeemCode = createRedeemCodeForUpstream({
+    redeemCode = await createRedeemCodeForUpstream({
       productId: product.id,
       upstreamCodeId,
       now,
     });
   });
 
-  transaction();
+  await transaction();
 
   return {
     code: redeemCode,
@@ -94,7 +96,7 @@ export async function pairRedeemCode(
   input: PairRedeemCodeInput,
 ): Promise<PairRedeemCodeResult> {
   const normalizedUpstreamCode = normalizeUpstreamCode(input.upstreamCode);
-  const existingPair = findExistingPair(hashUpstreamCode(normalizedUpstreamCode));
+  const existingPair = await findExistingPair(hashUpstreamCode(normalizedUpstreamCode));
 
   if (existingPair?.code) {
     const upstreamLookup = await lookupBoundUpstreamCode({
@@ -113,14 +115,14 @@ export async function pairRedeemCode(
   if (existingPair) {
     const db = getDatabase();
     const now = new Date().toISOString();
-    const code = db.transaction(() => {
-      const redeemCode = createRedeemCodeForUpstream({
+    const code = await db.transaction(async () => {
+      const redeemCode = await createRedeemCodeForUpstream({
         productId: existingPair.productId,
         upstreamCodeId: existingPair.upstreamCodeId,
         now,
       });
 
-      db.prepare(
+      await db.prepare(
         `
           UPDATE upstream_codes
           SET status = ?, updated_at = ?
@@ -143,7 +145,7 @@ export async function pairRedeemCode(
     };
   }
 
-  const createdPair = insertNewPair({
+  const createdPair = await insertNewPair({
     ...input,
     upstreamCode: normalizedUpstreamCode,
   });

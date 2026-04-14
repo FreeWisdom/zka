@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
 
 import {
+  createAdminIpForbiddenResponse,
   createAdminUnauthorizedResponse,
+  isAdminRequestIpAllowed,
   isAdminRequestAuthenticated,
 } from '@/lib/admin/auth';
 import { listInventoryItems } from '@/lib/admin/inventory';
 
 export async function GET(request?: Request) {
+  if (request && !isAdminRequestIpAllowed(request)) {
+    return createAdminIpForbiddenResponse();
+  }
+
   if (request && !isAdminRequestAuthenticated(request)) {
     return createAdminUnauthorizedResponse();
   }
@@ -18,7 +24,7 @@ export async function GET(request?: Request) {
     success: true,
     message: '库存列表获取成功',
     data: {
-      items: listInventoryItems({
+      items: await listInventoryItems({
         batchNo,
         limit: batchNo ? null : 500,
       }),

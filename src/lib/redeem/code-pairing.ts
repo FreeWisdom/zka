@@ -30,11 +30,11 @@ function createRedeemCodeCandidate() {
   return `GIFT-${randomSegment(4)}-${randomSegment(4)}-${randomSegment(4)}`;
 }
 
-export function ensureProduct(input: ProductInput): ProductRow {
+export async function ensureProduct(input: ProductInput): Promise<ProductRow> {
   const db = getDatabase();
   const slug = input.productSlug?.trim() || DEFAULT_PRODUCT_SLUG;
   const now = new Date().toISOString();
-  const existingProduct = db
+  const existingProduct = await db
     .prepare<
       [string],
       ProductRow
@@ -58,7 +58,7 @@ export function ensureProduct(input: ProductInput): ProductRow {
     description: input.productDescription?.trim() || DEFAULT_PRODUCT_DESCRIPTION,
   };
 
-  db.prepare(
+  await db.prepare(
     `
       INSERT INTO products (id, name, slug, description, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -72,7 +72,24 @@ export function ensureProduct(input: ProductInput): ProductRow {
   };
 }
 
-export function createRedeemCodeForUpstream(input: {
+async function findExistingRedeemCodeByUpstreamCodeId(upstreamCodeId: string) {
+  const db = getDatabase();
+
+  return db
+    .prepare<
+      [string],
+      { code: string }
+    >(
+      `
+        SELECT code
+        FROM redeem_codes
+        WHERE upstream_code_id = ?
+      `,
+    )
+    .get(upstreamCodeId);
+}
+
+export async function createRedeemCodeForUpstream(input: {
   productId: string;
   upstreamCodeId: string;
   now?: string;
@@ -84,7 +101,7 @@ export function createRedeemCodeForUpstream(input: {
     const redeemCode = createRedeemCodeCandidate();
 
     try {
-      db.prepare(
+      await db.prepare(
         `
           INSERT INTO redeem_codes (
             id,
@@ -112,27 +129,16 @@ export function createRedeemCodeForUpstream(input: {
         throw error;
       }
 
-      if (error.message.includes('UNIQUE constraint failed: redeem_codes.code')) {
-        continue;
-      }
-
-      if (error.message.includes('UNIQUE constraint failed: redeem_codes.upstream_code_id')) {
-        const existingPair = db
-          .prepare<
-            [string],
-            { code: string }
-          >(
-            `
-              SELECT code
-              FROM redeem_codes
-              WHERE upstream_code_id = ?
-            `,
-          )
-          .get(input.upstreamCodeId);
+      if ('code' in error && error.code === '23505') {
+        const existingPair = await findExistingRedeemCodeByUpstreamCodeId(
+          input.upstreamCodeId,
+        );
 
         if (existingPair) {
           return existingPair.code;
         }
+
+        continue;
       }
 
       throw error;

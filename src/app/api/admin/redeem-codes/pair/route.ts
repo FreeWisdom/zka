@@ -2,13 +2,19 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import {
+  createAdminIpForbiddenResponse,
   createAdminUnauthorizedResponse,
+  isAdminRequestIpAllowed,
   isAdminRequestAuthenticated,
 } from '@/lib/admin/auth';
 import { pairRedeemCode } from '@/lib/redeem/pair-redeem-code';
 import { pairRedeemCodeSchema } from '@/lib/validation/redeem';
 
 export async function POST(request: Request) {
+  if (!isAdminRequestIpAllowed(request)) {
+    return createAdminIpForbiddenResponse();
+  }
+
   if (!isAdminRequestAuthenticated(request)) {
     return createAdminUnauthorizedResponse();
   }

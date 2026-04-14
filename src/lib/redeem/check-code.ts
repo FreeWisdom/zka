@@ -70,7 +70,7 @@ function mapCheckCodeState(
 export async function checkRedeemCode(code: string): Promise<CheckCodeResult> {
   const db = getDatabase();
   const normalizedCode = code.trim().toUpperCase();
-  const row = db
+  const row = await db
     .prepare<
       [string],
       RedeemCodeLookupRow

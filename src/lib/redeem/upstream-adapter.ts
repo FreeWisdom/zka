@@ -28,10 +28,27 @@ type UpstreamDataPayload = {
 };
 
 function getUpstreamApiBaseUrl() {
-  const configuredBaseUrl = getServerEnv().upstreamBaseUrl ?? DEFAULT_UPSTREAM_BASE_URL;
+  const configuredBaseUrl = getServerEnv().upstreamBaseUrl;
+
+  if (!configuredBaseUrl) {
+    if (isProductionEnvironment()) {
+      throw new Error('UPSTREAM_BASE_URL 未配置，生产环境无法调用上游接口');
+    }
+
+    return `${DEFAULT_UPSTREAM_BASE_URL}/api`;
+  }
+
   const trimmedBaseUrl = configuredBaseUrl.replace(/\/+$/, '');
 
   return trimmedBaseUrl.endsWith('/api') ? trimmedBaseUrl : `${trimmedBaseUrl}/api`;
+}
+
+function isProductionEnvironment() {
+  return getServerEnv().nodeEnv === 'production';
+}
+
+function isMockUpstreamCode(rawUpstreamCode: string) {
+  return rawUpstreamCode.startsWith('UPSTREAM-');
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -349,8 +366,16 @@ export async function lookupBoundUpstreamCode(input: {
 }): Promise<UpstreamLookupResult> {
   const rawUpstreamCode = decodeUpstreamCode(input.upstreamCodeEncrypted);
 
-  if (rawUpstreamCode.startsWith('UPSTREAM-')) {
+  if (isMockUpstreamCode(rawUpstreamCode) && !isProductionEnvironment()) {
     return createMockCheckResult(rawUpstreamCode);
+  }
+
+  if (isMockUpstreamCode(rawUpstreamCode)) {
+    return {
+      success: false,
+      codeMasked: maskUpstreamCode(rawUpstreamCode),
+      message: '生产环境已禁用演示卡密，请联系管理员处理',
+    };
   }
 
   try {
@@ -385,11 +410,15 @@ export async function activateUpstreamCode(input: {
 
   const rawUpstreamCode = decodeUpstreamCode(input.upstreamCodeEncrypted);
 
-  if (rawUpstreamCode.startsWith('UPSTREAM-')) {
+  if (isMockUpstreamCode(rawUpstreamCode) && !isProductionEnvironment()) {
     return createMockActivateResult({
       rawUpstreamCode,
       sessionInfo: input.sessionInfo,
     });
+  }
+
+  if (isMockUpstreamCode(rawUpstreamCode)) {
+    return createBoundFinalResult('生产环境已禁用演示卡密，请联系管理员处理');
   }
 
   try {

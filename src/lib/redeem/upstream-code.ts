@@ -1,4 +1,3 @@
-import type Database from 'better-sqlite3';
 import {
   createCipheriv,
   createDecipheriv,
@@ -14,6 +13,18 @@ const IV_LENGTH = 12;
 type LegacyUpstreamCodeRow = {
   id: string;
   upstream_code_encrypted: string;
+};
+
+type LegacyMigrationClient = {
+  prepare: <Params extends unknown[], Row>(
+    query: string,
+  ) => {
+    all: (...params: Params) => Promise<Row[]> | Row[];
+    run: (...params: Params) => Promise<unknown> | unknown;
+  };
+  transaction: <Args extends unknown[], Result>(
+    callback: (...args: Args) => Promise<Result> | Result,
+  ) => (...args: Args) => Promise<Result> | Result;
 };
 
 export function normalizeUpstreamCode(value: string) {
@@ -95,16 +106,17 @@ export function maskUpstreamCode(value: string) {
   return `${normalizedValue.slice(0, 4)}****${normalizedValue.slice(-4)}`;
 }
 
-export function migrateLegacyUpstreamCodeStorage(db: Database.Database) {
-  const legacyRows = db
-    .prepare<[], LegacyUpstreamCodeRow>(
-      `
-        SELECT id, upstream_code_encrypted
-        FROM upstream_codes
-      `,
-    )
-    .all()
-    .filter((row) => !isEncryptedUpstreamCode(row.upstream_code_encrypted));
+export async function migrateLegacyUpstreamCodeStorage(db: LegacyMigrationClient) {
+  const legacyRows = (
+    await db
+      .prepare<[], LegacyUpstreamCodeRow>(
+        `
+          SELECT id, upstream_code_encrypted
+          FROM upstream_codes
+        `,
+      )
+      .all()
+  ).filter((row) => !isEncryptedUpstreamCode(row.upstream_code_encrypted));
 
   if (!legacyRows.length || !getServerEnv().cardEncryptionKey) {
     return;
@@ -121,13 +133,15 @@ export function migrateLegacyUpstreamCodeStorage(db: Database.Database) {
     `,
   );
 
-  db.transaction(() => {
+  const transaction = db.transaction(async () => {
     for (const row of legacyRows) {
-      updateStatement.run(
+      await updateStatement.run(
         encodeUpstreamCode(decodeLegacyUpstreamCode(row.upstream_code_encrypted)),
         now,
         row.id,
       );
     }
-  })();
+  });
+
+  await transaction();
 }

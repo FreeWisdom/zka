@@ -3,8 +3,10 @@ import { z } from 'zod';
 
 import {
   appendAdminSessionCookie,
+  createAdminIpForbiddenResponse,
   createAdminSessionValue,
   getAdminLoginRedirectPath,
+  isAdminRequestIpAllowed,
   verifyAdminPassword,
 } from '@/lib/admin/auth';
 import { getServerEnv } from '@/lib/config/env';
@@ -15,6 +17,10 @@ const adminLoginSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!isAdminRequestIpAllowed(request)) {
+    return createAdminIpForbiddenResponse();
+  }
+
   try {
     const payload = adminLoginSchema.parse(await request.json());
     const configuredPassword = getServerEnv().adminPassword;

@@ -1,6 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
 
@@ -52,6 +52,68 @@ function createSessionSignature(issuedAt: string, adminPassword: string) {
 
 function getConfiguredAdminPassword() {
   return getServerEnv().adminPassword;
+}
+
+function getConfiguredAdminAllowedIps() {
+  return getServerEnv().adminAllowedIps;
+}
+
+function normalizeClientIp(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const forwardedValue = trimmedValue.split(',')[0]?.trim() ?? trimmedValue;
+
+  if (!forwardedValue) {
+    return null;
+  }
+
+  if (forwardedValue.startsWith('::ffff:')) {
+    return forwardedValue.slice('::ffff:'.length);
+  }
+
+  return forwardedValue;
+}
+
+function isAdminIpAllowed(ip?: string | null) {
+  const allowedIps = getConfiguredAdminAllowedIps();
+
+  if (!allowedIps.length) {
+    return true;
+  }
+
+  const normalizedIp = normalizeClientIp(ip);
+
+  if (!normalizedIp) {
+    return false;
+  }
+
+  return allowedIps.includes(normalizedIp);
+}
+
+function getRequestClientIp(request: Request) {
+  return normalizeClientIp(
+    request.headers.get('x-forwarded-for') ??
+      request.headers.get('x-real-ip') ??
+      request.headers.get('cf-connecting-ip'),
+  );
+}
+
+async function getViewerClientIp() {
+  const headerStore = await headers();
+
+  return normalizeClientIp(
+    headerStore.get('x-forwarded-for') ??
+      headerStore.get('x-real-ip') ??
+      headerStore.get('cf-connecting-ip'),
+  );
 }
 
 export function getAdminLoginRedirectPath(input?: string | null) {
@@ -123,13 +185,25 @@ export function isAdminRequestAuthenticated(request: Request) {
   return isAdminSessionValueValid(cookieStore.get(ADMIN_SESSION_COOKIE_NAME));
 }
 
+export function isAdminRequestIpAllowed(request: Request) {
+  return isAdminIpAllowed(getRequestClientIp(request));
+}
+
 export async function isAdminViewerAuthenticated() {
   const cookieStore = await cookies();
 
   return isAdminSessionValueValid(cookieStore.get(ADMIN_SESSION_COOKIE_NAME)?.value);
 }
 
+export async function isAdminViewerIpAllowed() {
+  return isAdminIpAllowed(await getViewerClientIp());
+}
+
 export async function redirectIfAdminUnauthenticated(nextPath: string) {
+  if (!(await isAdminViewerIpAllowed())) {
+    redirect('/admin/login?blocked=1');
+  }
+
   if (await isAdminViewerAuthenticated()) {
     return;
   }
@@ -144,6 +218,16 @@ export function createAdminUnauthorizedResponse() {
       message: '请先登录后台',
     },
     { status: 401 },
+  );
+}
+
+export function createAdminIpForbiddenResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      message: '当前 IP 不允许访问后台',
+    },
+    { status: 403 },
   );
 }
 
