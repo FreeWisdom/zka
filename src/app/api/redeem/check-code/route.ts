@@ -37,7 +37,6 @@ export async function POST(request: Request) {
       detailProductName: result.upstreamLookup.giftName ?? null,
       detailStatus: mapDetailStatus(result.upstreamLookup),
       detailCompletedAt: result.upstreamLookup.completedAt ?? null,
-      detailAccountEmail: result.upstreamLookup.accountEmail ?? null,
     };
 
     return NextResponse.json({

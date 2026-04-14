@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
 
-import { clearAdminSessionCookie } from '@/lib/admin/auth';
+import {
+  clearAdminSessionCookie,
+  createAdminIpForbiddenResponse,
+  isAdminRequestIpAllowed,
+} from '@/lib/admin/auth';
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (!isAdminRequestIpAllowed(request)) {
+    return createAdminIpForbiddenResponse();
+  }
+
   const response = NextResponse.json({
     success: true,
     message: '已退出后台登录',

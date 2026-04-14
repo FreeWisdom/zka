@@ -8,6 +8,7 @@ import {
   decodeUpstreamCode,
   encodeUpstreamCode,
   hashUpstreamCode,
+  maskStoredUpstreamCode,
   maskUpstreamCode,
   normalizeUpstreamCode,
 } from '@/lib/redeem/upstream-code';
@@ -190,7 +191,7 @@ function isDeliverableInventoryItem(item: InventoryListItem) {
   );
 }
 
-function findExistingInventory(hash: string) {
+async function findExistingInventory(hash: string) {
   const db = getDatabase();
 
   return db
@@ -212,7 +213,9 @@ function findExistingInventory(hash: string) {
     .get(hash);
 }
 
-export function importInventoryBatch(input: ImportInventoryInput): ImportInventoryResult {
+export async function importInventoryBatch(
+  input: ImportInventoryInput,
+): Promise<ImportInventoryResult> {
   const parsed = parseCodesText(input.codesText);
 
   if (parsed.codes.length === 0) {
@@ -221,7 +224,7 @@ export function importInventoryBatch(input: ImportInventoryInput): ImportInvento
 
   const db = getDatabase();
   const now = new Date().toISOString();
-  const product = ensureProduct(input);
+  const product = await ensureProduct(input);
   const batchId = randomUUID();
   const batchNo = createBatchNo();
   const generateRedeemCodes = input.generateRedeemCodes ?? true;
@@ -241,8 +244,8 @@ export function importInventoryBatch(input: ImportInventoryInput): ImportInvento
   const supplierName = input.supplierName?.trim() || null;
   const remark = input.remark?.trim() || null;
 
-  db.transaction(() => {
-    db.prepare(
+  await db.transaction(async () => {
+    await db.prepare(
       `
         INSERT INTO inventory_batches (
           id,
@@ -258,12 +261,12 @@ export function importInventoryBatch(input: ImportInventoryInput): ImportInvento
 
     for (const upstreamCode of parsed.codes) {
       const upstreamCodeHash = hashUpstreamCode(upstreamCode);
-      const existingInventory = findExistingInventory(upstreamCodeHash);
+      const existingInventory = await findExistingInventory(upstreamCodeHash);
 
       if (existingInventory?.redeemCode) {
         result.existingCount += 1;
         result.items.push({
-          upstreamCodeMasked: maskUpstreamCode(decodeUpstreamCode(existingInventory.upstreamCodeEncrypted)),
+          upstreamCodeMasked: maskStoredUpstreamCode(existingInventory.upstreamCodeEncrypted),
           redeemCode: existingInventory.redeemCode,
           status: 'existing',
           message: '已存在绑定关系，沿用原内部卡密',
@@ -272,13 +275,13 @@ export function importInventoryBatch(input: ImportInventoryInput): ImportInvento
       }
 
       if (existingInventory && generateRedeemCodes) {
-        const redeemCode = createRedeemCodeForUpstream({
+        const redeemCode = await createRedeemCodeForUpstream({
           productId: existingInventory.productId,
           upstreamCodeId: existingInventory.upstreamCodeId,
           now,
         });
 
-        db.prepare(
+        await db.prepare(
           `
             UPDATE upstream_codes
             SET status = ?, updated_at = ?
@@ -300,7 +303,7 @@ export function importInventoryBatch(input: ImportInventoryInput): ImportInvento
       if (existingInventory) {
         result.existingCount += 1;
         result.items.push({
-          upstreamCodeMasked: maskUpstreamCode(decodeUpstreamCode(existingInventory.upstreamCodeEncrypted)),
+          upstreamCodeMasked: maskStoredUpstreamCode(existingInventory.upstreamCodeEncrypted),
           redeemCode: null,
           status: 'existing',
           message: '库存已存在，本次未重复导入',
@@ -311,7 +314,7 @@ export function importInventoryBatch(input: ImportInventoryInput): ImportInvento
       const upstreamCodeId = randomUUID();
       const upstreamStatus = generateRedeemCodes ? 'bound' : 'in_stock';
 
-      db.prepare(
+      await db.prepare(
         `
           INSERT INTO upstream_codes (
             id,
@@ -338,7 +341,7 @@ export function importInventoryBatch(input: ImportInventoryInput): ImportInvento
       let redeemCode: string | null = null;
 
       if (generateRedeemCodes) {
-        redeemCode = createRedeemCodeForUpstream({
+        redeemCode = await createRedeemCodeForUpstream({
           productId: product.id,
           upstreamCodeId,
           now,
@@ -355,7 +358,7 @@ export function importInventoryBatch(input: ImportInventoryInput): ImportInvento
       });
     }
 
-    db.prepare(
+    await db.prepare(
       `
         UPDATE inventory_batches
         SET quantity = ?
@@ -367,13 +370,24 @@ export function importInventoryBatch(input: ImportInventoryInput): ImportInvento
   return result;
 }
 
-export function listInventoryItems(
+export async function listInventoryItems(
   input: ListInventoryOptions = {},
-): InventoryListItem[] {
+): Promise<InventoryListItem[]> {
   const db = getDatabase();
   const batchNo = normalizeBatchNo(input.batchNo);
   const limit = input.limit ?? 500;
-  const hasRedeemCode = input.hasRedeemCode ? 1 : 0;
+  const params: Array<string | number> = [];
+  const whereClauses: string[] = [];
+
+  if (batchNo) {
+    whereClauses.push('ib.batch_no = ?');
+    params.push(batchNo);
+  }
+
+  if (input.hasRedeemCode) {
+    whereClauses.push('rc.code IS NOT NULL');
+  }
+
   const baseQuery = `
     SELECT
       uc.id AS upstreamCodeId,
@@ -388,26 +402,25 @@ export function listInventoryItems(
     INNER JOIN products p ON p.id = uc.product_id
     LEFT JOIN inventory_batches ib ON ib.id = uc.batch_id
     LEFT JOIN redeem_codes rc ON rc.upstream_code_id = uc.id
-    WHERE (? IS NULL OR ib.batch_no = ?)
-      AND (? = 0 OR rc.code IS NOT NULL)
+    ${whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : ''}
     ORDER BY uc.created_at DESC
   `;
   const rows =
     limit == null
-      ? db
-          .prepare<[string | null, string | null, number], InventoryListRow>(baseQuery)
-          .all(batchNo, batchNo, hasRedeemCode)
-      : db
-          .prepare<[string | null, string | null, number, number], InventoryListRow>(
+      ? await db
+          .prepare<Array<string | number>, InventoryListRow>(baseQuery)
+          .all(...params)
+      : await db
+          .prepare<Array<string | number>, InventoryListRow>(
             `${baseQuery}\nLIMIT ?`,
           )
-          .all(batchNo, batchNo, hasRedeemCode, limit);
+          .all(...params, limit);
 
   return rows.map((row) => ({
     upstreamCodeId: row.upstreamCodeId,
     batchNo: row.batchNo,
     productName: row.productName,
-    upstreamCodeMasked: maskUpstreamCode(decodeUpstreamCode(row.upstreamCodeEncrypted)),
+    upstreamCodeMasked: maskStoredUpstreamCode(row.upstreamCodeEncrypted),
     upstreamStatus: row.upstreamStatus,
     redeemCode: row.redeemCode,
     redeemStatus: row.redeemStatus,
@@ -415,7 +428,7 @@ export function listInventoryItems(
   }));
 }
 
-export function revealInventoryUpstreamCode(upstreamCodeId: string) {
+export async function revealInventoryUpstreamCode(upstreamCodeId: string) {
   const normalizedId = upstreamCodeId.trim();
 
   if (!normalizedId) {
@@ -423,7 +436,7 @@ export function revealInventoryUpstreamCode(upstreamCodeId: string) {
   }
 
   const db = getDatabase();
-  const row = db
+  const row = await db
     .prepare<[string], UpstreamCodeDetailRow>(
       `
         SELECT upstream_code_encrypted AS upstreamCodeEncrypted
@@ -437,11 +450,19 @@ export function revealInventoryUpstreamCode(upstreamCodeId: string) {
     throw new InventoryImportError('未找到对应的上游卡密记录');
   }
 
-  return decodeUpstreamCode(row.upstreamCodeEncrypted);
+  try {
+    return decodeUpstreamCode(row.upstreamCodeEncrypted);
+  } catch {
+    throw new InventoryImportError(
+      '当前上游卡密无法解密，请确认部署环境中的 CARD_ENCRYPTION_KEY 与写入数据库时使用的值一致',
+    );
+  }
 }
 
-export function exportInventoryItems(input: ListInventoryOptions = {}): InventoryExportResult {
-  const items = listInventoryItems({
+export async function exportInventoryItems(
+  input: ListInventoryOptions = {},
+): Promise<InventoryExportResult> {
+  const items = await listInventoryItems({
     ...input,
     limit: input.limit ?? null,
     hasRedeemCode: true,
@@ -480,7 +501,7 @@ export function exportInventoryItems(input: ListInventoryOptions = {}): Inventor
   };
 }
 
-export function listInventoryBatches(limit = 24): BatchListItem[] {
+export async function listInventoryBatches(limit = 24): Promise<BatchListItem[]> {
   const db = getDatabase();
 
   return db

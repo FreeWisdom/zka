@@ -1,4 +1,7 @@
+import './load-env';
+
 import { pairRedeemCode } from '@/lib/redeem/pair-redeem-code';
+import { closeDatabaseConnections } from '@/lib/storage/database';
 
 async function main() {
   const upstreamCode = process.argv[2];
@@ -18,4 +21,6 @@ async function main() {
   console.log(JSON.stringify(result, null, 2));
 }
 
-void main();
+void main().finally(async () => {
+  await closeDatabaseConnections();
+});

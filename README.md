@@ -17,11 +17,12 @@
 
 ```bash
 npm install
+npm run db:migrate
 npm run db:seed
 npm run dev
 ```
 
-默认数据库文件位于 `data/` 目录，由 `DATABASE_PATH` 控制。
+当前项目面向 `Vercel + Supabase(Postgres)` 部署，运行前需要先配置数据库连接串。
 
 ## 环境变量
 
@@ -33,8 +34,10 @@ cp .env.example .env.local
 
 当前一期已经收口的环境变量包括：
 
-- `DATABASE_PATH`：SQLite 数据库文件路径
+- `DATABASE_URL`：运行时数据库连接串，建议使用 Supabase transaction pooler
+- `MIGRATION_DATABASE_URL`：migration 连接串，建议使用 Supabase 直连或 non-pooling 连接
 - `ADMIN_PASSWORD`：后台管理员密码
+- `ADMIN_ALLOWED_IPS`：可选，后台允许访问的 IP 白名单，多个 IP 用逗号分隔
 - `UPSTREAM_BASE_URL`：上游兑换服务基础地址
 - `UPSTREAM_API_KEY`：上游兑换服务密钥
 - `CARD_ENCRYPTION_KEY`：上游卡密加密密钥
@@ -43,7 +46,7 @@ cp .env.example .env.local
 - `ALIPAY_PUBLIC_KEY`：支付宝公钥
 - `ALIPAY_NOTIFY_URL`：支付宝异步回调地址
 
-目前仓库里只有 `DATABASE_PATH` 和健康检查会实际读取上述配置；其余配置先完成统一收口，后续在后台、支付和真实上游对接时接入。
+数据库连接配置会直接影响应用启动、migration 和健康检查；其余支付相关变量仍是后续能力预留。
 
 ## 健康检查
 

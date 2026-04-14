@@ -9,12 +9,13 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "pair:code": "tsx scripts/pair-upstream-code.ts"
   },
   "dependencies": {
-    "better-sqlite3": "12.8.0",
     "next": "16.2.2",
+    "postgres": "^3.4.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "4.3.6"
@@ -22,7 +23,6 @@
   "devDependencies": {
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
-    "@types/better-sqlite3": "7.6.13",
     "@types/node": "25.5.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",

@@ -96,7 +96,7 @@ function mapRedeemMetadata(input: {
   };
 }
 
-function loadRedeemSubmitRow(code: string) {
+async function loadRedeemSubmitRow(code: string) {
   const db = getDatabase();
 
   return db
@@ -116,7 +116,7 @@ function loadRedeemSubmitRow(code: string) {
     .get(code);
 }
 
-function loadLastRequest(redeemCodeId: string) {
+async function loadLastRequest(redeemCodeId: string) {
   const db = getDatabase();
 
   return db
@@ -202,17 +202,16 @@ function reserveRedeemSubmission(input: {
   code: string;
   sessionInfoMasked: string;
   sessionInfoHash: string;
-}): ReserveRedeemSubmissionResult {
+}): Promise<ReserveRedeemSubmissionResult> {
   const db = getDatabase();
-  const transaction: (transactionInput: typeof input) => ReserveRedeemSubmissionResult =
-    db.transaction((transactionInput: typeof input) => {
-    const row = loadRedeemSubmitRow(transactionInput.code);
+  const transaction = db.transaction(async (transactionInput: typeof input) => {
+    const row = await loadRedeemSubmitRow(transactionInput.code);
 
     if (!row) {
       throw new RedeemCodeLookupError('兑换码不存在');
     }
 
-    const lastRequest = loadLastRequest(row.redeemCodeId);
+    const lastRequest = await loadLastRequest(row.redeemCodeId);
     const existingSubmission = createExistingSubmissionResult(lastRequest);
 
     if (existingSubmission) {
@@ -229,7 +228,7 @@ function reserveRedeemSubmission(input: {
     const requestId = randomUUID();
     const requestNo = createRequestNo();
     const attemptNo = (lastRequest?.attemptNo ?? 0) + 1;
-    const redeemUpdate = db
+    const redeemUpdate = await db
       .prepare(
         `
           UPDATE redeem_codes
@@ -244,7 +243,7 @@ function reserveRedeemSubmission(input: {
         `,
       )
       .run('submitted', now, null, null, now, row.redeemCodeId);
-    const upstreamUpdate = db
+    const upstreamUpdate = await db
       .prepare(
         `
           UPDATE upstream_codes
@@ -261,14 +260,14 @@ function reserveRedeemSubmission(input: {
       .run('submitted', null, null, null, now, row.upstreamCodeId);
 
     if (redeemUpdate.changes !== 1 || upstreamUpdate.changes !== 1) {
-      const refreshedLastRequest = loadLastRequest(row.redeemCodeId);
+      const refreshedLastRequest = await loadLastRequest(row.redeemCodeId);
       const raceSubmission = createExistingSubmissionResult(refreshedLastRequest);
 
       if (raceSubmission) {
         return createExistingReservation(raceSubmission);
       }
 
-      const refreshedRow = loadRedeemSubmitRow(transactionInput.code);
+      const refreshedRow = await loadRedeemSubmitRow(transactionInput.code);
 
       if (!refreshedRow) {
         throw new RedeemCodeLookupError('兑换码不存在');
@@ -277,7 +276,7 @@ function reserveRedeemSubmission(input: {
       throw new RedeemSubmitError(mapBlockedSubmitMessage(refreshedRow) ?? '兑换码当前不可提交');
     }
 
-    db.prepare(
+    await db.prepare(
       `
         INSERT INTO redeem_requests (
           id,
@@ -322,12 +321,12 @@ function reserveRedeemSubmission(input: {
       requestId,
       requestNo,
     });
-    });
+  });
 
   return transaction(input);
 }
 
-function finalizeReservedRedeemSubmission(
+async function finalizeReservedRedeemSubmission(
   reservation: ReservedRedeemSubmission,
   upstreamResult: NormalizedUpstreamResult,
 ) {
@@ -345,8 +344,8 @@ function finalizeReservedRedeemSubmission(
     completedAt: upstreamResult.completedAt,
   });
 
-  db.transaction(() => {
-    db.prepare(
+  await db.transaction(async () => {
+    await db.prepare(
       `
         UPDATE redeem_requests
         SET
@@ -368,7 +367,7 @@ function finalizeReservedRedeemSubmission(
       reservation.requestId,
     );
 
-    db.prepare(
+    await db.prepare(
       `
         UPDATE redeem_codes
         SET
@@ -388,7 +387,7 @@ function finalizeReservedRedeemSubmission(
       reservation.redeemCodeId,
     );
 
-    db.prepare(
+    await db.prepare(
       `
         UPDATE upstream_codes
         SET
@@ -430,7 +429,7 @@ export async function submitRedeem(
 ): Promise<SubmitRedeemResult> {
   const normalizedCode = input.code.trim().toUpperCase();
   const sessionInfo = analyzeSessionInfo(input.sessionInfo);
-  const reservation = reserveRedeemSubmission({
+  const reservation = await reserveRedeemSubmission({
     code: normalizedCode,
     sessionInfoMasked: sessionInfo.masked,
     sessionInfoHash: sessionInfo.hash,
@@ -452,7 +451,7 @@ export async function submitRedeem(
     upstreamResult = createUnexpectedActivateResult(error);
   }
 
-  finalizeReservedRedeemSubmission(reservation, upstreamResult);
+  await finalizeReservedRedeemSubmission(reservation, upstreamResult);
 
   return {
     requestNo: reservation.requestNo,

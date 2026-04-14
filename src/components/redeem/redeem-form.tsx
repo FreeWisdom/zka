@@ -12,7 +12,6 @@ type LookupState = {
   detailProductName: string | null;
   detailStatus: string;
   detailCompletedAt: string | null;
-  detailAccountEmail: string | null;
 };
 
 export function RedeemForm() {
@@ -127,9 +126,6 @@ export function RedeemForm() {
           <span>状态：{lookupState.detailStatus}</span>
           {lookupState.detailCompletedAt ? (
             <span>完成时间：{lookupState.detailCompletedAt}</span>
-          ) : null}
-          {lookupState.detailAccountEmail ? (
-            <span>账号邮箱：{lookupState.detailAccountEmail}</span>
           ) : null}
         </div>
       ) : null}

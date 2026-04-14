@@ -1,149 +1,215 @@
-import Database from 'better-sqlite3';
-import fs from 'node:fs';
-import path from 'node:path';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
-import { getDatabasePath } from '@/lib/config/env';
-import { migrateLegacyUpstreamCodeStorage } from '@/lib/redeem/upstream-code';
+import postgres from 'postgres';
 
-const globalForSqlite = globalThis as typeof globalThis & {
-  sqlite?: Database.Database;
+import { getRuntimeDatabaseUrl } from '@/lib/config/env';
+
+export type QueryResultMeta = {
+  changes: number;
 };
 
-type TableColumnRow = {
-  name: string;
+type PreparedStatement<Params extends unknown[], Row> = {
+  all: (...params: Params) => Promise<Row[]>;
+  get: (...params: Params) => Promise<Row | undefined>;
+  run: (...params: Params) => Promise<QueryResultMeta>;
 };
 
-function resolveDatabasePath() {
-  const configuredPath = getDatabasePath();
-  const normalizedRelativePath = configuredPath.replace(/^\.?[\\/]/, '');
+type DatabaseClientShape = {
+  exec: (query: string) => Promise<void>;
+  prepare: <Params extends unknown[], Row>(
+    query: string,
+  ) => PreparedStatement<Params, Row>;
+  transaction: <Args extends unknown[], Result>(
+    callback: (...args: Args) => Promise<Result> | Result,
+  ) => (...args: Args) => Promise<Result>;
+};
 
-  return path.isAbsolute(configuredPath)
-    ? configuredPath
-    : path.join(/* turbopackIgnore: true */ process.cwd(), normalizedRelativePath);
+const globalForPostgres = globalThis as typeof globalThis & {
+  postgresClient?: DatabaseClient;
+  postgresSql?: ReturnType<typeof postgres>;
+};
+
+const transactionClientStorage = new AsyncLocalStorage<DatabaseClient>();
+const placeholderCache = new Map<string, string>();
+const rowProxyCache = new WeakMap<object, object>();
+
+type QueryExecutor = {
+  unsafe: (query: string, params?: unknown[]) => Promise<
+    Array<Record<string, unknown>> & {
+      count?: number;
+    }
+  >;
+};
+
+type TransactionExecutor = QueryExecutor & {
+  begin?: never;
+};
+
+type RootExecutor = QueryExecutor & {
+  begin: <Result>(
+    callback: (transactionSql: QueryExecutor) => Promise<Result>,
+  ) => Promise<Result>;
+};
+
+function normalizeResultRow<Row>(row: Row): Row {
+  if (!row || typeof row !== 'object') {
+    return row;
+  }
+
+  const cachedRow = rowProxyCache.get(row as object);
+
+  if (cachedRow) {
+    return cachedRow as Row;
+  }
+
+  const proxiedRow = new Proxy(row as Record<string, unknown>, {
+    get(target, property, receiver) {
+      if (typeof property !== 'string' || Reflect.has(target, property)) {
+        return Reflect.get(target, property, receiver);
+      }
+
+      return Reflect.get(target, property.toLowerCase(), receiver);
+    },
+    has(target, property) {
+      if (typeof property !== 'string') {
+        return Reflect.has(target, property);
+      }
+
+      return Reflect.has(target, property) || Reflect.has(target, property.toLowerCase());
+    },
+  });
+
+  rowProxyCache.set(row as object, proxiedRow);
+
+  return proxiedRow as Row;
 }
 
-function ensureColumn(
-  db: Database.Database,
-  tableName: string,
-  columnName: string,
-  definition: string,
-) {
-  const columns = db.prepare<[], TableColumnRow>(`PRAGMA table_info(${tableName})`).all();
-  const hasColumn = columns.some((column) => column.name === columnName);
+function convertSqlitePlaceholders(query: string) {
+  const cachedQuery = placeholderCache.get(query);
 
-  if (!hasColumn) {
-    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  if (cachedQuery) {
+    return cachedQuery;
+  }
+
+  let index = 0;
+  const convertedQuery = query.replace(/\?/g, () => `$${++index}`);
+
+  placeholderCache.set(query, convertedQuery);
+
+  return convertedQuery;
+}
+
+class DatabaseClient implements DatabaseClientShape {
+  constructor(private readonly sqlClient: QueryExecutor) {}
+
+  private getActiveQueryExecutor() {
+    const activeClient = transactionClientStorage.getStore();
+
+    if (activeClient && activeClient !== this) {
+      return activeClient.sqlClient;
+    }
+
+    return this.sqlClient;
+  }
+
+  async exec(query: string) {
+    await this.getActiveQueryExecutor().unsafe(query);
+  }
+
+  prepare<Params extends unknown[], Row>(
+    query: string,
+  ): PreparedStatement<Params, Row> {
+    const convertedQuery = convertSqlitePlaceholders(query);
+
+    return {
+      all: async (...params: Params) => {
+        const rows = await this.getActiveQueryExecutor().unsafe(
+          convertedQuery,
+          params as unknown[],
+        );
+
+        return rows.map((row) => normalizeResultRow(row as Row));
+      },
+      get: async (...params: Params) => {
+        const rows = await this.getActiveQueryExecutor().unsafe(
+          convertedQuery,
+          params as unknown[],
+        );
+
+        const row = rows[0];
+
+        return row ? normalizeResultRow(row as Row) : undefined;
+      },
+      run: async (...params: Params) => {
+        const result = await this.getActiveQueryExecutor().unsafe(
+          convertedQuery,
+          params as unknown[],
+        );
+
+        return {
+          changes: result.count ?? 0,
+        };
+      },
+    };
+  }
+
+  transaction<Args extends unknown[], Result>(
+    callback: (...args: Args) => Promise<Result> | Result,
+  ) {
+    return async (...args: Args) =>
+      (this.sqlClient as RootExecutor).begin(async (transactionSql) => {
+        const transactionClient = new DatabaseClient(
+          transactionSql as TransactionExecutor,
+        );
+
+        return transactionClientStorage.run(transactionClient, async () =>
+          callback(...args),
+        ) as Promise<Result>;
+      }) as Promise<Result>;
   }
 }
 
-function initializeDatabase(db: Database.Database) {
-  db.pragma('foreign_keys = ON');
+function createSqlClient() {
+  const databaseUrl = getRuntimeDatabaseUrl();
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS products (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      slug TEXT NOT NULL UNIQUE,
-      description TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+  if (!databaseUrl) {
+    throw new Error(
+      '未配置 DATABASE_URL 或 POSTGRES_URL，无法连接数据库',
     );
+  }
 
-    CREATE TABLE IF NOT EXISTS inventory_batches (
-      id TEXT PRIMARY KEY,
-      batch_no TEXT NOT NULL UNIQUE,
-      supplier_name TEXT,
-      product_id TEXT NOT NULL,
-      remark TEXT,
-      quantity INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+  return postgres(databaseUrl, {
+    max: 1,
+    prepare: false,
+    idle_timeout: 20,
+    connect_timeout: 15,
+  });
+}
+
+function getRootDatabaseClient() {
+  if (!globalForPostgres.postgresSql) {
+    globalForPostgres.postgresSql = createSqlClient();
+    globalForPostgres.postgresClient = new DatabaseClient(
+      globalForPostgres.postgresSql as unknown as RootExecutor,
     );
+  }
 
-    CREATE TABLE IF NOT EXISTS upstream_codes (
-      id TEXT PRIMARY KEY,
-      product_id TEXT NOT NULL,
-      batch_id TEXT,
-      upstream_code_encrypted TEXT NOT NULL,
-      upstream_code_hash TEXT NOT NULL UNIQUE,
-      status TEXT NOT NULL,
-      last_error_message TEXT,
-      activated_at TEXT,
-      invalid_at TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-      FOREIGN KEY (batch_id) REFERENCES inventory_batches(id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS redeem_codes (
-      id TEXT PRIMARY KEY,
-      code TEXT NOT NULL UNIQUE,
-      product_id TEXT NOT NULL,
-      upstream_code_id TEXT NOT NULL UNIQUE,
-      status TEXT NOT NULL,
-      issued_at TEXT NOT NULL,
-      submitted_at TEXT,
-      redeemed_at TEXT,
-      locked_at TEXT,
-      last_error_message TEXT,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-      FOREIGN KEY (upstream_code_id) REFERENCES upstream_codes(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS redeem_requests (
-      id TEXT PRIMARY KEY,
-      request_no TEXT NOT NULL UNIQUE,
-      redeem_code_id TEXT NOT NULL,
-      attempt_no INTEGER NOT NULL,
-      retry_of_request_id TEXT,
-      session_info_masked TEXT NOT NULL,
-      session_info_hash TEXT NOT NULL,
-      status TEXT NOT NULL,
-      upstream_status_code INTEGER,
-      upstream_response TEXT,
-      error_message TEXT,
-      submitted_at TEXT NOT NULL,
-      completed_at TEXT,
-      last_checked_at TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      UNIQUE (redeem_code_id, attempt_no),
-      FOREIGN KEY (redeem_code_id) REFERENCES redeem_codes(id) ON DELETE CASCADE,
-      FOREIGN KEY (retry_of_request_id) REFERENCES redeem_requests(id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_upstream_codes_product_status
-      ON upstream_codes (product_id, status);
-    CREATE INDEX IF NOT EXISTS idx_redeem_codes_status_issued
-      ON redeem_codes (status, issued_at);
-    CREATE INDEX IF NOT EXISTS idx_redeem_requests_status_created
-      ON redeem_requests (status, created_at);
-    CREATE INDEX IF NOT EXISTS idx_redeem_requests_session_hash
-      ON redeem_requests (session_info_hash);
-  `);
-
-  ensureColumn(db, 'redeem_requests', 'last_checked_at', 'TEXT');
-  ensureColumn(db, 'upstream_codes', 'batch_id', 'TEXT');
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_upstream_codes_batch_created
-      ON upstream_codes (batch_id, created_at DESC);
-  `);
-
-  migrateLegacyUpstreamCodeStorage(db);
+  return globalForPostgres.postgresClient!;
 }
 
 export function getDatabase() {
-  if (!globalForSqlite.sqlite) {
-    const databasePath = resolveDatabasePath();
-    fs.mkdirSync(path.dirname(databasePath), { recursive: true });
+  return transactionClientStorage.getStore() ?? getRootDatabaseClient();
+}
 
-    const db = new Database(databasePath);
-    initializeDatabase(db);
-
-    globalForSqlite.sqlite = db;
+export async function closeDatabaseConnections() {
+  if (!globalForPostgres.postgresSql) {
+    return;
   }
 
-  return globalForSqlite.sqlite;
+  await globalForPostgres.postgresSql.end({
+    timeout: 5,
+  });
+
+  globalForPostgres.postgresSql = undefined;
+  globalForPostgres.postgresClient = undefined;
 }

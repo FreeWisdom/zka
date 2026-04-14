@@ -10,6 +10,18 @@ export function getDatabasePath() {
   return readEnvValue('DATABASE_PATH') ?? DEFAULT_DATABASE_PATH;
 }
 
+export function getRuntimeDatabaseUrl() {
+  return readEnvValue('DATABASE_URL') ?? readEnvValue('POSTGRES_URL');
+}
+
+export function getMigrationDatabaseUrl() {
+  return (
+    readEnvValue('MIGRATION_DATABASE_URL') ??
+    readEnvValue('POSTGRES_URL_NON_POOLING') ??
+    getRuntimeDatabaseUrl()
+  );
+}
+
 export function getServerEnv() {
   const upstreamBaseUrl = readEnvValue('UPSTREAM_BASE_URL');
   const upstreamApiKey = readEnvValue('UPSTREAM_API_KEY');
@@ -21,10 +33,17 @@ export function getServerEnv() {
   return {
     nodeEnv: readEnvValue('NODE_ENV') ?? 'development',
     databasePath: getDatabasePath(),
+    databaseUrlConfigured: Boolean(getRuntimeDatabaseUrl()),
+    migrationDatabaseUrlConfigured: Boolean(getMigrationDatabaseUrl()),
     adminPassword: readEnvValue('ADMIN_PASSWORD'),
     upstreamBaseUrl,
     upstreamApiKey,
     cardEncryptionKey: readEnvValue('CARD_ENCRYPTION_KEY'),
+    adminAllowedIps:
+      readEnvValue('ADMIN_ALLOWED_IPS')
+        ?.split(',')
+        .map((item) => item.trim())
+        .filter(Boolean) ?? [],
     alipayAppId,
     alipayPrivateKey,
     alipayPublicKey,
@@ -42,6 +61,8 @@ export function getEnvHealthSummary() {
   return {
     nodeEnv: env.nodeEnv,
     databasePath: env.databasePath,
+    databaseUrlConfigured: env.databaseUrlConfigured,
+    migrationDatabaseUrlConfigured: env.migrationDatabaseUrlConfigured,
     adminPasswordConfigured: Boolean(env.adminPassword),
     upstreamConfigured: env.upstreamConfigured,
     cardEncryptionKeyConfigured: Boolean(env.cardEncryptionKey),

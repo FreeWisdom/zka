@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default async function AdminInventoryPage() {
   await redirectIfAdminUnauthenticated('/admin/inventory');
 
-  const batches = listInventoryBatches();
+  const batches = await listInventoryBatches();
   const selectedBatchNo = batches[0]?.batchNo ?? null;
 
   return (
@@ -35,8 +35,8 @@ export default async function AdminInventoryPage() {
         initialBatches={batches}
         initialInventory={
           selectedBatchNo
-            ? listInventoryItems({ batchNo: selectedBatchNo, limit: null })
-            : listInventoryItems()
+            ? await listInventoryItems({ batchNo: selectedBatchNo, limit: null })
+            : await listInventoryItems()
         }
       />
     </main>

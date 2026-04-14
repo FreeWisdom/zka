@@ -1,17 +1,23 @@
 import {
+  createAdminIpForbiddenResponse,
   createAdminUnauthorizedResponse,
+  isAdminRequestIpAllowed,
   isAdminRequestAuthenticated,
 } from '@/lib/admin/auth';
 import { exportInventoryItems } from '@/lib/admin/inventory';
 
 export async function GET(request: Request) {
+  if (!isAdminRequestIpAllowed(request)) {
+    return createAdminIpForbiddenResponse();
+  }
+
   if (!isAdminRequestAuthenticated(request)) {
     return createAdminUnauthorizedResponse();
   }
 
   const { searchParams } = new URL(request.url);
   const batchNo = searchParams.get('batchNo');
-  const exported = exportInventoryItems({
+  const exported = await exportInventoryItems({
     batchNo,
   });
 

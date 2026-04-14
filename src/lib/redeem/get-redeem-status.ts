@@ -122,7 +122,7 @@ function createLookupSnapshot(lookup: UpstreamLookupResult) {
   });
 }
 
-function persistProcessingRefresh(
+async function persistProcessingRefresh(
   row: RedeemStatusRow,
   input: {
     now: string;
@@ -131,7 +131,7 @@ function persistProcessingRefresh(
 ) {
   const db = getDatabase();
 
-  db.prepare(
+  await db.prepare(
     `
       UPDATE redeem_requests
       SET
@@ -150,7 +150,7 @@ function persistProcessingRefresh(
   );
 }
 
-function persistResolvedRefresh(
+async function persistResolvedRefresh(
   row: RedeemStatusRow,
   input: {
     now: string;
@@ -163,8 +163,8 @@ function persistResolvedRefresh(
   },
 ) {
   const db = getDatabase();
-  const transaction = db.transaction(() => {
-    db.prepare(
+  const transaction = db.transaction(async () => {
+    await db.prepare(
       `
         UPDATE redeem_requests
         SET
@@ -188,7 +188,7 @@ function persistResolvedRefresh(
       row.requestId,
     );
 
-    db.prepare(
+    await db.prepare(
       `
         UPDATE redeem_codes
         SET
@@ -206,7 +206,7 @@ function persistResolvedRefresh(
       row.redeemCodeId,
     );
 
-    db.prepare(
+    await db.prepare(
       `
         UPDATE upstream_codes
         SET
@@ -227,7 +227,7 @@ function persistResolvedRefresh(
     );
   });
 
-  transaction();
+  await transaction();
 }
 
 async function refreshProcessingStatus(row: RedeemStatusRow): Promise<RedeemStatusResult> {
@@ -246,7 +246,7 @@ async function refreshProcessingStatus(row: RedeemStatusRow): Promise<RedeemStat
   if (lookup.useStatus === 1) {
     const completedAt = lookup.completedAt ?? now;
 
-    persistResolvedRefresh(row, {
+    await persistResolvedRefresh(row, {
       now,
       lookup,
       requestStatus: 'success',
@@ -274,7 +274,7 @@ async function refreshProcessingStatus(row: RedeemStatusRow): Promise<RedeemStat
     const isAvailableAgain = lookup.useStatus === 0;
     const message = lookup.statusHint ?? lookup.message;
 
-    persistResolvedRefresh(row, {
+    await persistResolvedRefresh(row, {
       now,
       lookup,
       requestStatus: 'failed_retryable',
@@ -302,7 +302,7 @@ async function refreshProcessingStatus(row: RedeemStatusRow): Promise<RedeemStat
   if (isInvalidLookup(lookup)) {
     const message = lookup.statusHint ?? lookup.message;
 
-    persistResolvedRefresh(row, {
+    await persistResolvedRefresh(row, {
       now,
       lookup,
       requestStatus: 'failed_final',
@@ -326,7 +326,7 @@ async function refreshProcessingStatus(row: RedeemStatusRow): Promise<RedeemStat
     );
   }
 
-  persistProcessingRefresh(row, {
+  await persistProcessingRefresh(row, {
     now,
     lookup,
   });
@@ -361,7 +361,7 @@ export async function getRedeemStatus(
   options: GetRedeemStatusOptions = {},
 ): Promise<RedeemStatusResult> {
   const db = getDatabase();
-  const row = db
+  const row = await db
     .prepare<
       [string],
       RedeemStatusRow
