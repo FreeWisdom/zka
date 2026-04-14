@@ -7,6 +7,7 @@ import type {
   ImportInventoryResult,
   InventoryListItem,
 } from '@/lib/admin/inventory';
+import { formatDateTimeSafe } from '@/lib/date-time';
 
 type InventoryManagerProps = {
   initialBatches: BatchListItem[];
@@ -57,13 +58,6 @@ function getDownloadFilename(contentDisposition: string | null, fallback: string
   const matched = contentDisposition?.match(/filename="([^"]+)"/i);
 
   return matched?.[1] ?? fallback;
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(new Date(value));
 }
 
 function getResultStatusLabel(status: ImportInventoryResult['items'][number]['status']) {
@@ -565,7 +559,7 @@ export function InventoryManager({
                     <span>
                       数量 {batch.quantity} / 已发码 {batch.generatedCount} / 库存中 {batch.inStockCount}
                     </span>
-                    <span>{formatDateTime(batch.createdAt)}</span>
+                    <span>{formatDateTimeSafe(batch.createdAt)}</span>
                   </button>
                 );
               })
@@ -747,7 +741,7 @@ export function InventoryManager({
                     <td>{item.productName}</td>
                     <td>{getInventoryStatusLabel(item.upstreamStatus)}</td>
                     <td>{item.redeemStatus ? getInventoryStatusLabel(item.redeemStatus) : '未生成'}</td>
-                    <td>{formatDateTime(item.createdAt)}</td>
+                    <td>{formatDateTimeSafe(item.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
