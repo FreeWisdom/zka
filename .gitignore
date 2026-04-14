@@ -10,3 +10,4 @@ data/*.db-journal
 .preview-*.log
 .run-*.log
 tsconfig.tsbuildinfo
+.npm-cache
