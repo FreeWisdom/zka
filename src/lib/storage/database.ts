@@ -102,8 +102,18 @@ function convertSqlitePlaceholders(query: string) {
 class DatabaseClient implements DatabaseClientShape {
   constructor(private readonly sqlClient: QueryExecutor) {}
 
+  private getActiveQueryExecutor() {
+    const activeClient = transactionClientStorage.getStore();
+
+    if (activeClient && activeClient !== this) {
+      return activeClient.sqlClient;
+    }
+
+    return this.sqlClient;
+  }
+
   async exec(query: string) {
-    await this.sqlClient.unsafe(query);
+    await this.getActiveQueryExecutor().unsafe(query);
   }
 
   prepare<Params extends unknown[], Row>(
@@ -113,7 +123,7 @@ class DatabaseClient implements DatabaseClientShape {
 
     return {
       all: async (...params: Params) => {
-        const rows = await this.sqlClient.unsafe(
+        const rows = await this.getActiveQueryExecutor().unsafe(
           convertedQuery,
           params as unknown[],
         );
@@ -121,7 +131,7 @@ class DatabaseClient implements DatabaseClientShape {
         return rows.map((row) => normalizeResultRow(row as Row));
       },
       get: async (...params: Params) => {
-        const rows = await this.sqlClient.unsafe(
+        const rows = await this.getActiveQueryExecutor().unsafe(
           convertedQuery,
           params as unknown[],
         );
@@ -131,7 +141,7 @@ class DatabaseClient implements DatabaseClientShape {
         return row ? normalizeResultRow(row as Row) : undefined;
       },
       run: async (...params: Params) => {
-        const result = await this.sqlClient.unsafe(
+        const result = await this.getActiveQueryExecutor().unsafe(
           convertedQuery,
           params as unknown[],
         );
