@@ -98,6 +98,17 @@ type InventoryListRow = {
   createdAt: string;
 };
 
+type BatchListRow = {
+  batchNo: string;
+  productName: string;
+  supplierName: string | null;
+  remark: string | null;
+  quantity: number;
+  generatedCount: number;
+  inStockCount: number;
+  createdAt: string;
+};
+
 type UpstreamCodeDetailRow = {
   upstreamCodeEncrypted: string;
 };
@@ -464,10 +475,10 @@ export async function exportInventoryItems(
 export async function listInventoryBatches(limit = 24): Promise<BatchListItem[]> {
   const db = getDatabase();
 
-  return db
+  const rows = await db
     .prepare<
       [number],
-      BatchListItem
+      BatchListRow
     >(
       `
         SELECT
@@ -489,4 +500,15 @@ export async function listInventoryBatches(limit = 24): Promise<BatchListItem[]>
       `,
     )
     .all(limit);
+
+  return rows.map((row) => ({
+    batchNo: row.batchNo,
+    productName: row.productName,
+    supplierName: row.supplierName,
+    remark: row.remark,
+    quantity: row.quantity,
+    generatedCount: row.generatedCount,
+    inStockCount: row.inStockCount,
+    createdAt: row.createdAt,
+  }));
 }
