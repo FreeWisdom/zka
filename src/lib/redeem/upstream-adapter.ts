@@ -141,7 +141,7 @@ function logUpstreamDebug(label: string, details: Record<string, unknown>) {
     return;
   }
 
-  console.info(`[upstream-debug] ${label}`, details);
+  console.info(`[upstream-debug] ${label} ${JSON.stringify(details)}`);
 }
 
 function getErrorCauseDetails(error: unknown) {

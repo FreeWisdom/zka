@@ -6,6 +6,15 @@ import {
 } from '@/lib/redeem/upstream-adapter';
 import { encodeUpstreamCode } from '@/lib/redeem/upstream-code';
 
+function parseDebugLogEntry(message: string) {
+  const jsonStart = message.indexOf('{');
+
+  return {
+    prefix: jsonStart === -1 ? message : message.slice(0, jsonStart).trimEnd(),
+    payload: jsonStart === -1 ? null : JSON.parse(message.slice(jsonStart)),
+  };
+}
+
 function createUpstreamResponse(payload: unknown) {
   return {
     ok: true,
@@ -147,37 +156,45 @@ describe('upstream adapter requests', () => {
     });
 
     expect(consoleInfoSpy).toHaveBeenCalledTimes(2);
-    expect(consoleInfoSpy.mock.calls[0]).toEqual([
-      '[upstream-debug] request',
-      expect.objectContaining({
+    const requestLog = parseDebugLogEntry(String(consoleInfoSpy.mock.calls[0]?.[0]));
+    const responseLog = parseDebugLogEntry(String(consoleInfoSpy.mock.calls[1]?.[0]));
+
+    expect(requestLog).toEqual({
+      prefix: '[upstream-debug] request',
+      payload: {
         url: 'https://upstream.example.com/api/activate',
         method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
         body: {
           cdkey: 'REAL****0001',
           session_info: '[masked]',
         },
-      }),
-    ]);
-    expect(consoleInfoSpy.mock.calls[1]).toEqual([
-      '[upstream-debug] response',
-      expect.objectContaining({
-        url: 'https://upstream.example.com/api/activate',
-        status: 200,
-        ok: true,
-        bodyPreview: {
-          success: true,
-          msg: 'ok',
-          data: {
-            cdkey: 'REAL****0001',
-            gift_name: 'ChatGPT Plus',
-            use_status: 1,
-            status_hint: 'ok',
-            account: 'us***@example.com',
-            completed_at: '2026-03-18T01:00:00+08:00',
-          },
+      },
+    });
+    expect(responseLog.prefix).toBe('[upstream-debug] response');
+    expect(responseLog.payload).toMatchObject({
+      url: 'https://upstream.example.com/api/activate',
+      status: 200,
+      ok: true,
+      headers: {
+        'content-type': 'application/json',
+      },
+      bodyPreview: {
+        success: true,
+        msg: 'ok',
+        data: {
+          cdkey: 'REAL****0001',
+          gift_name: 'ChatGPT Plus',
+          use_status: 1,
+          status_hint: 'ok',
+          account: 'us***@example.com',
+          completed_at: '2026-03-18T01:00:00+08:00',
         },
-      }),
-    ]);
+      },
+    });
+    expect(responseLog.payload?.durationMs).toEqual(expect.any(Number));
   });
 
   it('logs error cause details when upstream fetch fails', async () => {
@@ -201,21 +218,21 @@ describe('upstream adapter requests', () => {
     });
 
     expect(consoleInfoSpy).toHaveBeenCalledTimes(2);
-    expect(consoleInfoSpy.mock.calls[1]).toEqual([
-      '[upstream-debug] error',
-      expect.objectContaining({
-        url: 'https://upstream.example.com/api/check',
-        name: 'TypeError',
-        message: 'fetch failed',
-        cause: {
-          name: undefined,
-          code: 'ECONNRESET',
-          message: 'socket hang up',
-          errno: -4077,
-          address: '203.0.113.10',
-          port: 443,
-        },
-      }),
-    ]);
+    const errorLog = parseDebugLogEntry(String(consoleInfoSpy.mock.calls[1]?.[0]));
+
+    expect(errorLog.prefix).toBe('[upstream-debug] error');
+    expect(errorLog.payload).toMatchObject({
+      url: 'https://upstream.example.com/api/check',
+      name: 'TypeError',
+      message: 'fetch failed',
+      cause: {
+        code: 'ECONNRESET',
+        message: 'socket hang up',
+        errno: -4077,
+        address: '203.0.113.10',
+        port: 443,
+      },
+    });
+    expect(errorLog.payload?.durationMs).toEqual(expect.any(Number));
   });
 });
