@@ -161,6 +161,34 @@ export function InventoryManager({
   const deliverableRedeemCodes = filteredInventory
     .filter((item): item is InventoryListItem & { redeemCode: string } => isDeliverableInventoryItem(item))
     .map((item) => item.redeemCode);
+  const selectedBatchSummaryItems = selectedBatch
+    ? [
+        {
+          key: 'quantity',
+          label: '导入',
+          title: '导入数量',
+          value: `${selectedBatch.quantity}`,
+        },
+        {
+          key: 'generated',
+          label: '内部卡密',
+          title: '已生成内部卡密',
+          value: `${selectedBatch.generatedCount}`,
+        },
+        {
+          key: 'stock',
+          label: '库存',
+          title: '仍在库存中',
+          value: `${selectedBatch.inStockCount}`,
+        },
+        {
+          key: 'supplier',
+          label: '供应商',
+          title: '供应商',
+          value: selectedBatch.supplierName || '未填',
+        },
+      ]
+    : [];
 
   async function handleBatchSelect(batchNo: string) {
     setInventoryLoading(true);
@@ -588,16 +616,33 @@ export function InventoryManager({
         </aside>
 
         <div className="redeem-card admin-inventory-card">
-          <div className="redeem-card-header">
-            <span className="redeem-kicker">库存</span>
-            <h2>
-              {selectedBatch ? `${selectedBatch.batchNo} 的卡密列表` : '当前库存'}
-            </h2>
-            <p>
-              {selectedBatch
-                ? `当前批次共 ${filteredInventory.length} 张卡密，右侧列表展示这一批次的上游卡密与内部卡密绑定情况。`
-                : '当前展示最近的库存记录。'}
-            </p>
+          <div className="admin-inventory-card-head">
+            <div className="redeem-card-header admin-inventory-card-header">
+              <span className="redeem-kicker">库存</span>
+              <h2>
+                {selectedBatch ? `${selectedBatch.batchNo} 的卡密列表` : '当前库存'}
+              </h2>
+              <p>
+                {selectedBatch
+                  ? `当前批次共 ${filteredInventory.length} 张卡密，右侧列表展示这一批次的上游卡密与内部卡密绑定情况。`
+                  : '当前展示最近的库存记录。'}
+              </p>
+            </div>
+
+            {selectedBatchSummaryItems.length ? (
+              <dl className="admin-inventory-meta" aria-label="当前批次概览">
+                {selectedBatchSummaryItems.map((item) => (
+                  <div
+                    className="admin-inventory-meta-item"
+                    key={item.key}
+                    title={`${item.title}：${item.value}`}
+                  >
+                    <dt>{item.label}</dt>
+                    <dd>{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
           </div>
 
           <div className="admin-inventory-toolbar">
@@ -641,27 +686,6 @@ export function InventoryManager({
               </div>
             </div>
           </div>
-
-          {selectedBatch ? (
-            <div className="admin-summary-grid admin-summary-grid-compact">
-              <div className="admin-summary-card">
-                <strong>{selectedBatch.quantity}</strong>
-                <span>导入数量</span>
-              </div>
-              <div className="admin-summary-card">
-                <strong>{selectedBatch.generatedCount}</strong>
-                <span>已生成内部卡密</span>
-              </div>
-              <div className="admin-summary-card">
-                <strong>{selectedBatch.inStockCount}</strong>
-                <span>仍在库存中</span>
-              </div>
-              <div className="admin-summary-card">
-                <strong>{selectedBatch.supplierName || '未填'}</strong>
-                <span>供应商</span>
-              </div>
-            </div>
-          ) : null}
 
           {!inventoryLoading && !filteredInventory.length ? (
             <div className="admin-empty-state">当前批次下还没有可展示的卡密记录。</div>

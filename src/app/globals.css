@@ -831,6 +831,59 @@ code {
   min-height: min(1240px, calc(100vh - 92px));
 }
 
+.admin-inventory-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.admin-inventory-card-header {
+  flex: 1 1 560px;
+  min-width: 0;
+}
+
+.admin-inventory-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  max-width: min(100%, 420px);
+  margin: 0 0 0 auto;
+}
+
+.admin-inventory-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 9px 12px;
+  border: 1px solid rgba(65, 57, 47, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 10px 24px rgba(64, 46, 28, 0.08);
+}
+
+.admin-inventory-meta-item dt {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.admin-inventory-meta-item dd {
+  margin: 0;
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
 .admin-empty-state {
   margin-top: 20px;
   padding: 20px;
@@ -993,6 +1046,16 @@ code {
   .admin-batch-list,
   .admin-table-wrap-tall {
     max-height: none;
+  }
+
+  .admin-inventory-card-head {
+    flex-direction: column;
+  }
+
+  .admin-inventory-meta {
+    justify-content: flex-start;
+    max-width: none;
+    margin-left: 0;
   }
 
   .admin-inventory-card {
