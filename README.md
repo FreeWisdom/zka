@@ -39,7 +39,6 @@ cp .env.example .env.local
 - `ADMIN_PASSWORD`：后台管理员密码
 - `ADMIN_ALLOWED_IPS`：可选，后台允许访问的 IP 白名单，多个 IP 用逗号分隔
 - `UPSTREAM_BASE_URL`：上游兑换服务基础地址
-- `UPSTREAM_API_KEY`：上游兑换服务密钥
 - `CARD_ENCRYPTION_KEY`：上游卡密加密密钥
 - `ALIPAY_APP_ID`：支付宝应用 ID
 - `ALIPAY_PRIVATE_KEY`：支付宝私钥

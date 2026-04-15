@@ -8,7 +8,6 @@ describe('GET /api/health', () => {
     vi.restoreAllMocks();
     delete process.env.ADMIN_PASSWORD;
     delete process.env.UPSTREAM_BASE_URL;
-    delete process.env.UPSTREAM_API_KEY;
     delete process.env.CARD_ENCRYPTION_KEY;
     delete process.env.ALIPAY_APP_ID;
     delete process.env.ALIPAY_PRIVATE_KEY;
@@ -19,7 +18,6 @@ describe('GET /api/health', () => {
   it('returns app and database health', async () => {
     process.env.ADMIN_PASSWORD = 'admin-secret';
     process.env.UPSTREAM_BASE_URL = 'https://upstream.example.com';
-    process.env.UPSTREAM_API_KEY = 'upstream-secret';
     process.env.CARD_ENCRYPTION_KEY = 'card-encryption-key';
     process.env.ALIPAY_APP_ID = 'alipay-app-id';
     process.env.ALIPAY_PRIVATE_KEY = 'alipay-private-key';

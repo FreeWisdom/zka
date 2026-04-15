@@ -91,23 +91,15 @@ async function requestUpstream(
 ): Promise<UpstreamEnvelope> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
-  const { upstreamApiKey } = getServerEnv();
-  const headers: Record<string, string> = {
-    accept: 'application/json',
-    'content-type': 'application/json',
-  };
-
-  if (upstreamApiKey) {
-    headers.authorization = `Bearer ${upstreamApiKey}`;
-    headers['x-api-key'] = upstreamApiKey;
-  }
 
   try {
     const response = await fetch(
       new URL(path.replace(/^\//, ''), `${getUpstreamApiBaseUrl()}/`),
       {
         method: 'POST',
-        // headers,
+        headers: {
+          'content-type': 'application/json',
+        },
         body: JSON.stringify(payload),
         signal: controller.signal,
         cache: 'no-store',
