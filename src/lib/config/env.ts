@@ -6,6 +6,12 @@ function readEnvValue(name: string) {
   return value ? value : undefined;
 }
 
+function readBooleanEnvValue(name: string) {
+  const value = readEnvValue(name)?.toLowerCase();
+
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on';
+}
+
 export function getDatabasePath() {
   return readEnvValue('DATABASE_PATH') ?? DEFAULT_DATABASE_PATH;
 }
@@ -24,6 +30,7 @@ export function getMigrationDatabaseUrl() {
 
 export function getServerEnv() {
   const upstreamBaseUrl = readEnvValue('UPSTREAM_BASE_URL');
+  const upstreamDebugEnabled = readBooleanEnvValue('UPSTREAM_DEBUG');
   const alipayAppId = readEnvValue('ALIPAY_APP_ID');
   const alipayPrivateKey = readEnvValue('ALIPAY_PRIVATE_KEY');
   const alipayPublicKey = readEnvValue('ALIPAY_PUBLIC_KEY');
@@ -36,6 +43,7 @@ export function getServerEnv() {
     migrationDatabaseUrlConfigured: Boolean(getMigrationDatabaseUrl()),
     adminPassword: readEnvValue('ADMIN_PASSWORD'),
     upstreamBaseUrl,
+    upstreamDebugEnabled,
     cardEncryptionKey: readEnvValue('CARD_ENCRYPTION_KEY'),
     adminAllowedIps:
       readEnvValue('ADMIN_ALLOWED_IPS')

@@ -9,6 +9,7 @@ import type {
 
 const DEFAULT_UPSTREAM_BASE_URL = 'https://gpt.86gamestore.com';
 const UPSTREAM_TIMEOUT_MS = 10_000;
+const UPSTREAM_DEBUG_BODY_LIMIT = 600;
 
 type UpstreamEnvelope = {
   success?: boolean;
@@ -26,6 +27,10 @@ type UpstreamDataPayload = {
   in_cooldown?: boolean;
   cooldown_remaining?: number;
 };
+
+function isUpstreamDebugEnabled() {
+  return getServerEnv().upstreamDebugEnabled;
+}
 
 function getUpstreamApiBaseUrl() {
   const configuredBaseUrl = getServerEnv().upstreamBaseUrl;
@@ -57,6 +62,106 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function isUpstreamDataPayload(value: unknown): value is UpstreamDataPayload {
   return isObject(value);
+}
+
+function truncateDebugText(value: string, limit = UPSTREAM_DEBUG_BODY_LIMIT) {
+  if (value.length <= limit) {
+    return value;
+  }
+
+  return `${value.slice(0, limit)}...`;
+}
+
+function maskEmail(value: string) {
+  const [localPart, domain = ''] = value.split('@');
+
+  if (!domain) {
+    if (value.length <= 4) {
+      return '[masked]';
+    }
+
+    return `${value.slice(0, 2)}***${value.slice(-2)}`;
+  }
+
+  const maskedLocalPart =
+    localPart.length <= 2 ? `${localPart.slice(0, 1)}***` : `${localPart.slice(0, 2)}***`;
+
+  return `${maskedLocalPart}@${domain}`;
+}
+
+function sanitizeDebugValue(key: string, value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return sanitizeDebugData(value);
+  }
+
+  switch (key) {
+    case 'cdkey':
+      return maskUpstreamCode(value);
+    case 'session_info':
+    case 'accessToken':
+    case 'authorization':
+    case 'token':
+      return '[masked]';
+    case 'account':
+    case 'email':
+      return maskEmail(value);
+    default:
+      return value;
+  }
+}
+
+function sanitizeDebugData(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeDebugData(item));
+  }
+
+  if (!isObject(value)) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, sanitizeDebugValue(key, item)]),
+  );
+}
+
+function createResponseBodyPreview(responseText: string) {
+  if (!responseText) {
+    return '';
+  }
+
+  try {
+    return sanitizeDebugData(JSON.parse(responseText));
+  } catch {
+    return truncateDebugText(responseText);
+  }
+}
+
+function logUpstreamDebug(label: string, details: Record<string, unknown>) {
+  if (!isUpstreamDebugEnabled()) {
+    return;
+  }
+
+  console.info(`[upstream-debug] ${label}`, details);
+}
+
+function getErrorCauseDetails(error: unknown) {
+  if (!(error instanceof Error) || !error.cause || typeof error.cause !== 'object') {
+    return undefined;
+  }
+
+  const cause = error.cause as Record<string, unknown>;
+
+  return {
+    name: typeof cause.name === 'string' ? cause.name : undefined,
+    code: typeof cause.code === 'string' ? cause.code : undefined,
+    message: typeof cause.message === 'string' ? cause.message : undefined,
+    errno:
+      typeof cause.errno === 'number' || typeof cause.errno === 'string'
+        ? cause.errno
+        : undefined,
+    address: typeof cause.address === 'string' ? cause.address : undefined,
+    port: typeof cause.port === 'number' ? cause.port : undefined,
+  };
 }
 
 function isRetryableMessage(message: string) {
@@ -91,26 +196,43 @@ async function requestUpstream(
 ): Promise<UpstreamEnvelope> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  const requestUrl = new URL(path.replace(/^\//, ''), `${getUpstreamApiBaseUrl()}/`);
+  const requestHeaders = {
+    'content-type': 'application/json',
+  };
+  const requestStartedAt = Date.now();
 
   try {
-    const response = await fetch(
-      new URL(path.replace(/^\//, ''), `${getUpstreamApiBaseUrl()}/`),
-      {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-        cache: 'no-store',
-      },
-    );
+    logUpstreamDebug('request', {
+      url: requestUrl.toString(),
+      method: 'POST',
+      headers: requestHeaders,
+      body: sanitizeDebugData(payload),
+    });
+
+    const response = await fetch(requestUrl, {
+      method: 'POST',
+      headers: requestHeaders,
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+    const responseText = await response.text();
+
+    logUpstreamDebug('response', {
+      url: requestUrl.toString(),
+      status: response.status,
+      ok: response.ok,
+      durationMs: Date.now() - requestStartedAt,
+      headers: Object.fromEntries(response.headers.entries()),
+      bodyPreview: createResponseBodyPreview(responseText),
+    });
 
     if (!response.ok) {
       throw new Error(`请求失败，HTTP ${response.status}`);
     }
 
-    const result = (await response.json()) as unknown;
+    const result = responseText ? (JSON.parse(responseText) as unknown) : null;
 
     if (!isObject(result)) {
       throw new Error('返回了无效响应');
@@ -118,6 +240,14 @@ async function requestUpstream(
 
     return result as UpstreamEnvelope;
   } catch (error) {
+    logUpstreamDebug('error', {
+      url: requestUrl.toString(),
+      durationMs: Date.now() - requestStartedAt,
+      name: error instanceof Error ? error.name : 'UnknownError',
+      message: error instanceof Error ? error.message : String(error),
+      cause: getErrorCauseDetails(error),
+    });
+
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('请求超时，请稍后重试');
     }
@@ -330,7 +460,11 @@ function normalizeActivateResult(envelope: UpstreamEnvelope): NormalizedUpstream
     };
   }
 
-  if (upstreamStatusCode === -999 || upstreamStatusCode === -1000 || isInvalidMessage(message)) {
+  if (
+    upstreamStatusCode === -999 ||
+    upstreamStatusCode === -1000 ||
+    isInvalidMessage(message)
+  ) {
     return {
       ok: false,
       state: 'failed_final',
