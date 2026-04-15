@@ -107,7 +107,7 @@ async function requestUpstream(
       new URL(path.replace(/^\//, ''), `${getUpstreamApiBaseUrl()}/`),
       {
         method: 'POST',
-        headers,
+        // headers,
         body: JSON.stringify(payload),
         signal: controller.signal,
         cache: 'no-store',
