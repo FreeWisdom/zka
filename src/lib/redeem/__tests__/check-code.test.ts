@@ -12,10 +12,10 @@ describe('checkRedeemCode', () => {
   });
 
   it('returns canSubmit=true for an unused redeem code', async () => {
-    const result = await checkRedeemCode('GIFT-VALID-0001');
+    const result = await checkRedeemCode('ZKA-VALID-0001');
 
     expect(result).toMatchObject({
-      code: 'GIFT-VALID-0001',
+      code: 'ZKA-VALID-0001',
       status: 'unused',
       canSubmit: true,
       productName: `ChatGPT Plus ${'\u6708\u5361'}`,
@@ -30,10 +30,10 @@ describe('checkRedeemCode', () => {
   });
 
   it('returns canSubmit=false for a locked redeem code', async () => {
-    const result = await checkRedeemCode('GIFT-LOCKED-0001');
+    const result = await checkRedeemCode('ZKA-LOCKED-0001');
 
     expect(result).toMatchObject({
-      code: 'GIFT-LOCKED-0001',
+      code: 'ZKA-LOCKED-0001',
       status: 'locked',
       canSubmit: false,
       message: '\u5151\u6362\u7801\u5df2\u9501\u5b9a',
@@ -42,7 +42,7 @@ describe('checkRedeemCode', () => {
   });
 
   it('rejects an unknown redeem code', async () => {
-    await expect(checkRedeemCode('GIFT-MISSING-0001')).rejects.toThrow(
+    await expect(checkRedeemCode('ZKA-MISSING-0001')).rejects.toThrow(
       '\u5151\u6362\u7801\u4e0d\u5b58\u5728',
     );
   });
@@ -54,7 +54,7 @@ describe('checkRedeemCode', () => {
         headers: {
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ code: 'GIFT-VALID-0001' }),
+        body: JSON.stringify({ code: 'ZKA-VALID-0001' }),
       }),
     );
 
@@ -63,7 +63,7 @@ describe('checkRedeemCode', () => {
       success: true,
       message: '\u5151\u6362\u7801\u53ef\u7528',
       data: {
-        code: 'GIFT-VALID-0001',
+        code: 'ZKA-VALID-0001',
         status: 'unused',
         canSubmit: true,
         productName: `ChatGPT Plus ${'\u6708\u5361'}`,
@@ -82,7 +82,7 @@ describe('checkRedeemCode', () => {
         headers: {
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ code: 'GIFT-VALID-0001' }),
+        body: JSON.stringify({ code: 'ZKA-VALID-0001' }),
       }),
     );
     const payload = await response.json();

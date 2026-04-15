@@ -69,7 +69,7 @@ describe('pairRedeemCode', () => {
         statusHint: '待提交',
       },
     });
-    expect(result.code).toMatch(/^GIFT-/);
+    expect(result.code).toMatch(/^ZKA-/);
 
     const db = getDatabase();
     const row = db

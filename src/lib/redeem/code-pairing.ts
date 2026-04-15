@@ -7,6 +7,7 @@ export const DEFAULT_PRODUCT_SLUG = 'chatgpt-plus-1m';
 export const DEFAULT_PRODUCT_DESCRIPTION = '自动映射上游卡密生成的内部兑换码';
 
 const REDEEM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const REDEEM_CODE_PREFIX = 'ZKA';
 
 type ProductInput = {
   productName?: string;
@@ -27,7 +28,7 @@ function randomSegment(length: number) {
 }
 
 function createRedeemCodeCandidate() {
-  return `GIFT-${randomSegment(4)}-${randomSegment(4)}-${randomSegment(4)}`;
+  return `${REDEEM_CODE_PREFIX}-${randomSegment(4)}-${randomSegment(4)}-${randomSegment(4)}`;
 }
 
 export async function ensureProduct(input: ProductInput): Promise<ProductRow> {

@@ -33,7 +33,7 @@ describe('submitRedeem', () => {
 
   it('creates a success request and marks the redeem code successful', async () => {
     const result = await submitRedeem({
-      code: 'GIFT-VALID-0001',
+      code: 'ZKA-VALID-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -60,7 +60,7 @@ describe('submitRedeem', () => {
           WHERE code = ?
         `,
       )
-      .get('GIFT-VALID-0001');
+      .get('ZKA-VALID-0001');
 
     expect(redeemCode).toMatchObject({
       status: 'success',
@@ -82,7 +82,7 @@ describe('submitRedeem', () => {
           WHERE rc.code = ?
         `,
       )
-      .get('GIFT-VALID-0001');
+      .get('ZKA-VALID-0001');
 
     expect(upstreamCode).toMatchObject({
       status: 'success',
@@ -116,7 +116,7 @@ describe('submitRedeem', () => {
 
   it('returns failed_final for a non-free plan without consuming the upstream code', async () => {
     const result = await submitRedeem({
-      code: 'GIFT-VALID-0001',
+      code: 'ZKA-VALID-0001',
       sessionInfo: createSessionInfo('plus'),
     });
 
@@ -144,7 +144,7 @@ describe('submitRedeem', () => {
           WHERE rc.code = ?
         `,
       )
-      .get('GIFT-VALID-0001');
+      .get('ZKA-VALID-0001');
 
     expect(state).toMatchObject({
       redeem_status: 'failed',
@@ -154,7 +154,7 @@ describe('submitRedeem', () => {
 
   it('returns failed_retryable for a retryable upstream response', async () => {
     const result = await submitRedeem({
-      code: 'GIFT-RETRY-0001',
+      code: 'ZKA-RETRY-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -168,7 +168,7 @@ describe('submitRedeem', () => {
 
   it('returns processing for an in-flight upstream response', async () => {
     const result = await submitRedeem({
-      code: 'GIFT-PROCESS-0001',
+      code: 'ZKA-PROCESS-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -189,11 +189,11 @@ describe('submitRedeem', () => {
       .spyOn(upstreamAdapter, 'activateUpstreamCode')
       .mockImplementation(async () => activatePromise);
     const firstSubmit = submitRedeem({
-      code: 'GIFT-VALID-0001',
+      code: 'ZKA-VALID-0001',
       sessionInfo: createSessionInfo(),
     });
     const secondSubmit = submitRedeem({
-      code: 'GIFT-VALID-0001',
+      code: 'ZKA-VALID-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -231,7 +231,7 @@ describe('submitRedeem', () => {
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          code: 'GIFT-VALID-0001',
+          code: 'ZKA-VALID-0001',
           sessionInfo: createSessionInfo(),
         }),
       }),
@@ -256,7 +256,7 @@ describe('submitRedeem', () => {
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          code: 'GIFT-VALID-0001',
+          code: 'ZKA-VALID-0001',
           sessionInfo: '',
         }),
       }),

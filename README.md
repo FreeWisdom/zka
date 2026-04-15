@@ -64,11 +64,11 @@ curl http://localhost:3000/api/health
 
 ## 演示兑换码
 
-- `GIFT-VALID-0001`：成功
-- `GIFT-RETRY-0001`：可重试失败
-- `GIFT-PROCESS-0001`：处理中
-- `GIFT-LOCKED-0001`：锁定
-- `GIFT-BROKEN-0001`：绑定卡密不可用
+- `ZKA-VALID-0001`：成功
+- `ZKA-RETRY-0001`：可重试失败
+- `ZKA-PROCESS-0001`：处理中
+- `ZKA-LOCKED-0001`：锁定
+- `ZKA-BROKEN-0001`：绑定卡密不可用
 
 ## 演示 session_info
 

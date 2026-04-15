@@ -94,31 +94,31 @@ async function main() {
 
   for (const fixture of [
     {
-      code: 'GIFT-VALID-0001',
+      code: 'ZKA-VALID-0001',
       redeemStatus: 'unused',
       upstreamStatus: 'bound',
       rawUpstreamCode: 'UPSTREAM-SUCCESS-0001',
     },
     {
-      code: 'GIFT-RETRY-0001',
+      code: 'ZKA-RETRY-0001',
       redeemStatus: 'failed',
       upstreamStatus: 'bound',
       rawUpstreamCode: 'UPSTREAM-RETRY-0001',
     },
     {
-      code: 'GIFT-PROCESS-0001',
+      code: 'ZKA-PROCESS-0001',
       redeemStatus: 'unused',
       upstreamStatus: 'bound',
       rawUpstreamCode: 'UPSTREAM-PROCESS-0001',
     },
     {
-      code: 'GIFT-LOCKED-0001',
+      code: 'ZKA-LOCKED-0001',
       redeemStatus: 'locked',
       upstreamStatus: 'bound',
       rawUpstreamCode: 'UPSTREAM-LOCKED-0001',
     },
     {
-      code: 'GIFT-BROKEN-0001',
+      code: 'ZKA-BROKEN-0001',
       redeemStatus: 'failed',
       upstreamStatus: 'invalid',
       rawUpstreamCode: 'UPSTREAM-INVALID-0001',
@@ -131,11 +131,11 @@ async function main() {
   }
 
   console.log('Available demo codes:');
-  console.log('- GIFT-VALID-0001 => success');
-  console.log('- GIFT-RETRY-0001 => retryable failure');
-  console.log('- GIFT-PROCESS-0001 => processing');
-  console.log('- GIFT-LOCKED-0001 => locked');
-  console.log('- GIFT-BROKEN-0001 => invalid upstream');
+  console.log('- ZKA-VALID-0001 => success');
+  console.log('- ZKA-RETRY-0001 => retryable failure');
+  console.log('- ZKA-PROCESS-0001 => processing');
+  console.log('- ZKA-LOCKED-0001 => locked');
+  console.log('- ZKA-BROKEN-0001 => invalid upstream');
 }
 
 void main().finally(async () => {

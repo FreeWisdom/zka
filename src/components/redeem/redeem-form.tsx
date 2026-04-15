@@ -100,7 +100,7 @@ export function RedeemForm() {
           <input
             id="redeem-code"
             className="redeem-input"
-            placeholder="例如 GIFT-9X2K-7WQ4-ABCD"
+            placeholder="例如 ZKA-9X2K-7WQ4-ABCD"
             value={code}
             onChange={(event) => setCode(event.target.value.toUpperCase())}
           />

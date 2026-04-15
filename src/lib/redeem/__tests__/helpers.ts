@@ -105,37 +105,37 @@ export async function seedRedeemFixtures() {
 
   await Promise.all([
     createFixtureCode(product, {
-      code: 'GIFT-VALID-0001',
+      code: 'ZKA-VALID-0001',
       redeemStatus: 'unused',
       upstreamStatus: 'bound',
       rawUpstreamCode: 'UPSTREAM-SUCCESS-0001',
     }),
     createFixtureCode(product, {
-      code: 'GIFT-RETRY-0001',
+      code: 'ZKA-RETRY-0001',
       redeemStatus: 'failed',
       upstreamStatus: 'bound',
       rawUpstreamCode: 'UPSTREAM-RETRY-0001',
     }),
     createFixtureCode(product, {
-      code: 'GIFT-PROCESS-0001',
+      code: 'ZKA-PROCESS-0001',
       redeemStatus: 'unused',
       upstreamStatus: 'bound',
       rawUpstreamCode: 'UPSTREAM-PROCESS-0001',
     }),
     createFixtureCode(product, {
-      code: 'GIFT-LOCKED-0001',
+      code: 'ZKA-LOCKED-0001',
       redeemStatus: 'locked',
       upstreamStatus: 'bound',
       rawUpstreamCode: 'UPSTREAM-LOCKED-0001',
     }),
     createFixtureCode(product, {
-      code: 'GIFT-USED-0001',
+      code: 'ZKA-USED-0001',
       redeemStatus: 'success',
       upstreamStatus: 'success',
       rawUpstreamCode: 'UPSTREAM-USED-0001',
     }),
     createFixtureCode(product, {
-      code: 'GIFT-BROKEN-0001',
+      code: 'ZKA-BROKEN-0001',
       redeemStatus: 'failed',
       upstreamStatus: 'invalid',
       rawUpstreamCode: 'UPSTREAM-INVALID-0001',

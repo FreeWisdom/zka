@@ -53,13 +53,13 @@ describe('admin inventory import', () => {
       duplicateInputCount: 1,
       uniqueCount: 2,
     });
-    expect(result.items[0]?.redeemCode).toMatch(/^GIFT-/);
+    expect(result.items[0]?.redeemCode).toMatch(/^ZKA-/);
 
     const inventory = await listInventoryItems();
     const batches = await listInventoryBatches();
 
     expect(inventory).toHaveLength(2);
-    expect(inventory.every((item) => item.redeemCode?.startsWith('GIFT-'))).toBe(true);
+    expect(inventory.every((item) => item.redeemCode?.startsWith('ZKA-'))).toBe(true);
     expect(batches[0]).toMatchObject({
       quantity: 2,
       generatedCount: 2,
@@ -88,7 +88,7 @@ describe('admin inventory import', () => {
       created: true,
       upstreamCodeMasked: 'UPST****0001',
     });
-    expect(paired.code).toMatch(/^GIFT-/);
+    expect(paired.code).toMatch(/^ZKA-/);
 
     const inventory = await listInventoryItems();
     expect(inventory[0]).toMatchObject({
@@ -204,7 +204,7 @@ describe('admin inventory import', () => {
       'batchNo,productName,upstreamCodeMasked,redeemCode,redeemStatus,upstreamStatus,deliverable,createdAt',
     );
     expect(text).toContain(generatedBatch.batchNo);
-    expect(text).toContain('GIFT-');
+    expect(text).toContain('ZKA-');
     expect(text).toContain('yes');
     expect(text).not.toContain('UPSTREAM-EXPORT-STOCK-0001');
   });

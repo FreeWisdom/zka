@@ -55,7 +55,7 @@ describe('getRedeemStatus', () => {
 
   it('shows a processing hint for processing requests', async () => {
     const submission = await submitRedeem({
-      code: 'GIFT-PROCESS-0001',
+      code: 'ZKA-PROCESS-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -71,7 +71,7 @@ describe('getRedeemStatus', () => {
 
   it('shows a success hint for completed requests', async () => {
     const submission = await submitRedeem({
-      code: 'GIFT-VALID-0001',
+      code: 'ZKA-VALID-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -87,7 +87,7 @@ describe('getRedeemStatus', () => {
 
   it('marks retryable failures correctly', async () => {
     const submission = await submitRedeem({
-      code: 'GIFT-RETRY-0001',
+      code: 'ZKA-RETRY-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -103,7 +103,7 @@ describe('getRedeemStatus', () => {
 
   it('refreshes processing requests into success when upstream check completes', async () => {
     const submission = await submitRedeem({
-      code: 'GIFT-PROCESS-0001',
+      code: 'ZKA-PROCESS-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -155,7 +155,7 @@ describe('getRedeemStatus', () => {
 
   it('refreshes processing requests into retryable failure when upstream check returns available again', async () => {
     const submission = await submitRedeem({
-      code: 'GIFT-PROCESS-0001',
+      code: 'ZKA-PROCESS-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -175,7 +175,7 @@ describe('getRedeemStatus', () => {
 
   it('refreshes processing requests into final failure when upstream check reports invalid', async () => {
     const submission = await submitRedeem({
-      code: 'GIFT-PROCESS-0001',
+      code: 'ZKA-PROCESS-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -195,7 +195,7 @@ describe('getRedeemStatus', () => {
 
   it('throttles repeated processing refreshes within 30 seconds', async () => {
     const submission = await submitRedeem({
-      code: 'GIFT-PROCESS-0001',
+      code: 'ZKA-PROCESS-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -217,7 +217,7 @@ describe('getRedeemStatus', () => {
 
   it('returns the status payload from the api route', async () => {
     const submission = await submitRedeem({
-      code: 'GIFT-VALID-0001',
+      code: 'ZKA-VALID-0001',
       sessionInfo: createSessionInfo(),
     });
 
@@ -241,7 +241,7 @@ describe('getRedeemStatus', () => {
 
   it('returns refreshed status payload from the api route when refresh=1', async () => {
     const submission = await submitRedeem({
-      code: 'GIFT-PROCESS-0001',
+      code: 'ZKA-PROCESS-0001',
       sessionInfo: createSessionInfo(),
     });
 
