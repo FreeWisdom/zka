@@ -93,6 +93,7 @@ describe('upstream adapter requests', () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
+        'user-agent': 'zka-server',
       },
       body: JSON.stringify({
         cdkey: 'REAL-UPSTREAM-0001',
@@ -101,6 +102,7 @@ describe('upstream adapter requests', () => {
     });
     expect(checkInit?.headers).toEqual({
       'content-type': 'application/json',
+      'user-agent': 'zka-server',
     });
 
     const [activateUrl, activateInit] = fetchSpy.mock.calls[1] ?? [];
@@ -111,6 +113,7 @@ describe('upstream adapter requests', () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
+        'user-agent': 'zka-server',
       },
       body: JSON.stringify({
         cdkey: 'REAL-UPSTREAM-0001',
@@ -121,6 +124,7 @@ describe('upstream adapter requests', () => {
     });
     expect(activateInit?.headers).toEqual({
       'content-type': 'application/json',
+      'user-agent': 'zka-server',
     });
   });
 
@@ -166,6 +170,7 @@ describe('upstream adapter requests', () => {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
+          'user-agent': 'zka-server',
         },
         body: {
           cdkey: 'REAL****0001',

@@ -10,6 +10,7 @@ import type {
 const DEFAULT_UPSTREAM_BASE_URL = 'https://gpt.86gamestore.com';
 const UPSTREAM_TIMEOUT_MS = 10_000;
 const UPSTREAM_DEBUG_BODY_LIMIT = 600;
+const UPSTREAM_USER_AGENT = 'zka-server';
 
 type UpstreamEnvelope = {
   success?: boolean;
@@ -199,6 +200,7 @@ async function requestUpstream(
   const requestUrl = new URL(path.replace(/^\//, ''), `${getUpstreamApiBaseUrl()}/`);
   const requestHeaders = {
     'content-type': 'application/json',
+    'user-agent': UPSTREAM_USER_AGENT,
   };
   const requestStartedAt = Date.now();
 
