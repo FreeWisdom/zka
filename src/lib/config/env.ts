@@ -1,5 +1,7 @@
 const DEFAULT_DATABASE_PATH = './data/platform-b.db';
 
+export type DatabaseProvider = 'postgres' | 'sqlite';
+
 function readEnvValue(name: string) {
   const value = process.env[name]?.trim();
 
@@ -14,6 +16,16 @@ function readBooleanEnvValue(name: string) {
 
 export function getDatabasePath() {
   return readEnvValue('DATABASE_PATH') ?? DEFAULT_DATABASE_PATH;
+}
+
+export function getDatabaseProvider(): DatabaseProvider {
+  const provider = readEnvValue('DATABASE_PROVIDER')?.toLowerCase();
+
+  if (provider === 'postgres' || provider === 'sqlite') {
+    return provider;
+  }
+
+  return getRuntimeDatabaseUrl() ? 'postgres' : 'sqlite';
 }
 
 export function getRuntimeDatabaseUrl() {
@@ -38,6 +50,7 @@ export function getServerEnv() {
 
   return {
     nodeEnv: readEnvValue('NODE_ENV') ?? 'development',
+    databaseProvider: getDatabaseProvider(),
     databasePath: getDatabasePath(),
     databaseUrlConfigured: Boolean(getRuntimeDatabaseUrl()),
     migrationDatabaseUrlConfigured: Boolean(getMigrationDatabaseUrl()),
@@ -66,6 +79,7 @@ export function getEnvHealthSummary() {
 
   return {
     nodeEnv: env.nodeEnv,
+    databaseProvider: env.databaseProvider,
     databasePath: env.databasePath,
     databaseUrlConfigured: env.databaseUrlConfigured,
     migrationDatabaseUrlConfigured: env.migrationDatabaseUrlConfigured,

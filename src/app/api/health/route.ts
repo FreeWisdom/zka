@@ -6,6 +6,17 @@ import * as database from '@/lib/storage/database';
 export async function GET() {
   const timestamp = new Date().toISOString();
   const environment = getEnvHealthSummary();
+  const databaseConfigured =
+    environment.databaseProvider === 'sqlite'
+      ? true
+      : environment.databaseUrlConfigured;
+  const databaseDetails = {
+    provider: environment.databaseProvider,
+    configured: databaseConfigured,
+    ...(environment.databaseProvider === 'sqlite'
+      ? { path: environment.databasePath }
+      : {}),
+  };
 
   try {
     const db = database.getDatabase();
@@ -23,8 +34,7 @@ export async function GET() {
         },
         database: {
           status: 'ok',
-          provider: 'postgres',
-          configured: environment.databaseUrlConfigured,
+          ...databaseDetails,
         },
         config: {
           adminPasswordConfigured: environment.adminPasswordConfigured,
@@ -50,8 +60,7 @@ export async function GET() {
           },
         database: {
           status: 'error',
-          provider: 'postgres',
-          configured: environment.databaseUrlConfigured,
+          ...databaseDetails,
           message,
         },
           config: {

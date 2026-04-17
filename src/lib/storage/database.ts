@@ -1,8 +1,16 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import fs from 'node:fs';
+import path from 'node:path';
 
+import BetterSqlite3 from 'better-sqlite3';
 import postgres from 'postgres';
 
-import { getRuntimeDatabaseUrl } from '@/lib/config/env';
+import {
+  getDatabasePath,
+  getDatabaseProvider,
+  getRuntimeDatabaseUrl,
+} from '@/lib/config/env';
+import { applyPendingSqliteMigrations } from '@/lib/storage/migrations';
 
 export type QueryResultMeta = {
   changes: number;
@@ -14,7 +22,7 @@ type PreparedStatement<Params extends unknown[], Row> = {
   run: (...params: Params) => Promise<QueryResultMeta>;
 };
 
-type DatabaseClientShape = {
+export type DatabaseClientShape = {
   exec: (query: string) => Promise<void>;
   prepare: <Params extends unknown[], Row>(
     query: string,
@@ -24,12 +32,14 @@ type DatabaseClientShape = {
   ) => (...args: Args) => Promise<Result>;
 };
 
-const globalForPostgres = globalThis as typeof globalThis & {
-  postgresClient?: DatabaseClient;
+const globalForDatabase = globalThis as typeof globalThis & {
+  postgresClient?: PostgresDatabaseClient;
   postgresSql?: ReturnType<typeof postgres>;
+  sqliteClient?: SqliteDatabaseClient;
+  sqliteDb?: InstanceType<typeof BetterSqlite3>;
 };
 
-const transactionClientStorage = new AsyncLocalStorage<DatabaseClient>();
+const transactionClientStorage = new AsyncLocalStorage<DatabaseClientShape>();
 const placeholderCache = new Map<string, string>();
 const rowProxyCache = new WeakMap<object, object>();
 
@@ -99,13 +109,13 @@ function convertSqlitePlaceholders(query: string) {
   return convertedQuery;
 }
 
-class DatabaseClient implements DatabaseClientShape {
+class PostgresDatabaseClient implements DatabaseClientShape {
   constructor(private readonly sqlClient: QueryExecutor) {}
 
   private getActiveQueryExecutor() {
     const activeClient = transactionClientStorage.getStore();
 
-    if (activeClient && activeClient !== this) {
+    if (activeClient instanceof PostgresDatabaseClient && activeClient !== this) {
       return activeClient.sqlClient;
     }
 
@@ -155,10 +165,10 @@ class DatabaseClient implements DatabaseClientShape {
 
   transaction<Args extends unknown[], Result>(
     callback: (...args: Args) => Promise<Result> | Result,
-  ) {
+  ): (...args: Args) => Promise<Result> {
     return async (...args: Args) =>
       (this.sqlClient as RootExecutor).begin(async (transactionSql) => {
-        const transactionClient = new DatabaseClient(
+        const transactionClient = new PostgresDatabaseClient(
           transactionSql as TransactionExecutor,
         );
 
@@ -169,13 +179,87 @@ class DatabaseClient implements DatabaseClientShape {
   }
 }
 
-function createSqlClient() {
+class SqliteDatabaseClient implements DatabaseClientShape {
+  private transactionQueue: Promise<void> = Promise.resolve();
+
+  constructor(private readonly db: InstanceType<typeof BetterSqlite3>) {}
+
+  async exec(query: string) {
+    this.db.exec(query);
+  }
+
+  prepare<Params extends unknown[], Row>(
+    query: string,
+  ): PreparedStatement<Params, Row> {
+    const statement = this.db.prepare(query);
+
+    return {
+      all: async (...params: Params) =>
+        (statement.all(...(params as unknown[])) as Row[]).map((row) =>
+          normalizeResultRow(row),
+        ),
+      get: async (...params: Params) => {
+        const row = statement.get(...(params as unknown[])) as Row | undefined;
+
+        return row ? normalizeResultRow(row) : undefined;
+      },
+      run: async (...params: Params) => {
+        const result = statement.run(...(params as unknown[]));
+
+        return {
+          changes: Number(result.changes ?? 0),
+        };
+      },
+    };
+  }
+
+  transaction<Args extends unknown[], Result>(
+    callback: (...args: Args) => Promise<Result> | Result,
+  ): (...args: Args) => Promise<Result> {
+    return async (...args: Args) => {
+      if (transactionClientStorage.getStore()) {
+        return callback(...args);
+      }
+
+      const pendingTransaction = this.transactionQueue;
+      let releaseTransactionQueue!: () => void;
+
+      this.transactionQueue = new Promise<void>((resolve) => {
+        releaseTransactionQueue = resolve;
+      });
+
+      await pendingTransaction;
+
+      this.db.exec('BEGIN');
+
+      try {
+        const result: Result = await transactionClientStorage.run(
+          this,
+          async () => callback(...args),
+        );
+
+        this.db.exec('COMMIT');
+        return result;
+      } catch (error) {
+        try {
+          this.db.exec('ROLLBACK');
+        } catch {
+          // Ignore rollback errors so the original failure is preserved.
+        }
+
+        throw error;
+      } finally {
+        releaseTransactionQueue();
+      }
+    };
+  }
+}
+
+function createPostgresSqlClient() {
   const databaseUrl = getRuntimeDatabaseUrl();
 
   if (!databaseUrl) {
-    throw new Error(
-      '未配置 DATABASE_URL 或 POSTGRES_URL，无法连接数据库',
-    );
+    throw new Error('未配置 DATABASE_URL 或 POSTGRES_URL，无法连接 Postgres 数据库');
   }
 
   return postgres(databaseUrl, {
@@ -186,15 +270,46 @@ function createSqlClient() {
   });
 }
 
+function getResolvedDatabasePath() {
+  return path.resolve(process.cwd(), getDatabasePath());
+}
+
+function createSqliteConnection() {
+  const databasePath = getResolvedDatabasePath();
+
+  fs.mkdirSync(path.dirname(databasePath), {
+    recursive: true,
+  });
+
+  const sqliteDb = new BetterSqlite3(databasePath);
+
+  sqliteDb.pragma('foreign_keys = ON');
+  sqliteDb.pragma('journal_mode = WAL');
+  applyPendingSqliteMigrations(sqliteDb);
+
+  return sqliteDb;
+}
+
 function getRootDatabaseClient() {
-  if (!globalForPostgres.postgresSql) {
-    globalForPostgres.postgresSql = createSqlClient();
-    globalForPostgres.postgresClient = new DatabaseClient(
-      globalForPostgres.postgresSql as unknown as RootExecutor,
+  if (getDatabaseProvider() === 'sqlite') {
+    if (!globalForDatabase.sqliteDb) {
+      globalForDatabase.sqliteDb = createSqliteConnection();
+      globalForDatabase.sqliteClient = new SqliteDatabaseClient(
+        globalForDatabase.sqliteDb,
+      );
+    }
+
+    return globalForDatabase.sqliteClient!;
+  }
+
+  if (!globalForDatabase.postgresSql) {
+    globalForDatabase.postgresSql = createPostgresSqlClient();
+    globalForDatabase.postgresClient = new PostgresDatabaseClient(
+      globalForDatabase.postgresSql as unknown as RootExecutor,
     );
   }
 
-  return globalForPostgres.postgresClient!;
+  return globalForDatabase.postgresClient!;
 }
 
 export function getDatabase() {
@@ -202,14 +317,18 @@ export function getDatabase() {
 }
 
 export async function closeDatabaseConnections() {
-  if (!globalForPostgres.postgresSql) {
-    return;
+  if (globalForDatabase.postgresSql) {
+    await globalForDatabase.postgresSql.end({
+      timeout: 5,
+    });
+
+    globalForDatabase.postgresSql = undefined;
+    globalForDatabase.postgresClient = undefined;
   }
 
-  await globalForPostgres.postgresSql.end({
-    timeout: 5,
-  });
-
-  globalForPostgres.postgresSql = undefined;
-  globalForPostgres.postgresClient = undefined;
+  if (globalForDatabase.sqliteDb) {
+    globalForDatabase.sqliteDb.close();
+    globalForDatabase.sqliteDb = undefined;
+    globalForDatabase.sqliteClient = undefined;
+  }
 }

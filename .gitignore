@@ -7,6 +7,8 @@ node_modules
 .env.*.local
 data/*.db
 data/*.db-journal
+data/*.db-shm
+data/*.db-wal
 .preview-*.log
 .run-*.log
 tsconfig.tsbuildinfo
