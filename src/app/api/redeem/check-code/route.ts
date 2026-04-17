@@ -34,9 +34,13 @@ export async function POST(request: Request) {
       canSubmit: result.canSubmit,
       productName: result.productName,
       message: result.message,
+      upstreamCodeMasked: result.upstreamCodeMasked,
       detailProductName: result.upstreamLookup.giftName ?? null,
       detailStatus: mapDetailStatus(result.upstreamLookup),
       detailCompletedAt: result.upstreamLookup.completedAt ?? null,
+      accountEmail: result.upstreamLookup.accountEmail ?? null,
+      inCooldown: Boolean(result.upstreamLookup.inCooldown),
+      cooldownRemaining: result.upstreamLookup.cooldownRemaining ?? 0,
     };
 
     return NextResponse.json({

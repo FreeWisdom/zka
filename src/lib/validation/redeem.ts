@@ -15,6 +15,7 @@ export const submitRedeemSchema = z.object({
     .min(1, '兑换码不能为空')
     .transform((value) => value.toUpperCase()),
   sessionInfo: z.string().trim().min(1, 'session_info 不能为空'),
+  force: z.boolean().optional().default(false),
 });
 
 export const pairRedeemCodeSchema = z.object({

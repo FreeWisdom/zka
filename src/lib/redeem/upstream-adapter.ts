@@ -525,6 +525,7 @@ export async function activateUpstreamCode(input: {
   upstreamCodeEncrypted: string;
   sessionInfo: SessionInfoSnapshot;
   sessionInfoRaw: string;
+  force?: boolean;
 }): Promise<NormalizedUpstreamResult> {
   if (input.sessionInfo.errorMessage) {
     return createBoundFinalResult(input.sessionInfo.errorMessage);
@@ -550,10 +551,16 @@ export async function activateUpstreamCode(input: {
   }
 
   try {
-    const envelope = await requestUpstream('activate', {
+    const activatePayload: Record<string, unknown> = {
       cdkey: rawUpstreamCode,
       session_info: input.sessionInfoRaw,
-    });
+    };
+
+    if (input.force) {
+      activatePayload.force = 1;
+    }
+
+    const envelope = await requestUpstream('activate', activatePayload);
 
     return normalizeActivateResult(envelope);
   } catch (error) {

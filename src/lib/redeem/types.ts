@@ -47,6 +47,7 @@ export type CheckCodeResult = {
 export type SubmitRedeemInput = {
   code: string;
   sessionInfo: string;
+  force?: boolean;
 };
 
 export type SubmitRedeemResult = {

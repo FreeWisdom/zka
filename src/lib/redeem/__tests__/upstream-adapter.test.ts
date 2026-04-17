@@ -128,6 +128,52 @@ describe('upstream adapter requests', () => {
     });
   });
 
+  it('posts force=1 when forced activation is requested', async () => {
+    process.env.UPSTREAM_BASE_URL = 'https://upstream.example.com';
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      createUpstreamResponse({
+        success: true,
+        msg: 'ok',
+        data: {
+          cdkey: 'REAL-UPSTREAM-0001',
+          gift_name: 'ChatGPT Plus',
+          use_status: 1,
+          account: 'user@example.com',
+          completed_at: '2026-03-18T01:00:00+08:00',
+        },
+      }),
+    );
+
+    await activateUpstreamCode({
+      upstreamCodeEncrypted: encodeUpstreamCode('REAL-UPSTREAM-0001'),
+      sessionInfo: {
+        planType: 'free',
+        accountId: 'user-1',
+        email: 'user@example.com',
+      },
+      sessionInfoRaw:
+        '{"account":{"id":"user-1","planType":"free"},"accessToken":"test-access-token","user":{"email":"user@example.com"}}',
+      force: true,
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    const [activateUrl, activateInit] = fetchSpy.mock.calls[0] ?? [];
+
+    expect(activateUrl).toBeInstanceOf(URL);
+    expect((activateUrl as URL).toString()).toBe('https://upstream.example.com/api/activate');
+    expect(activateInit).toMatchObject({
+      method: 'POST',
+      body: JSON.stringify({
+        cdkey: 'REAL-UPSTREAM-0001',
+        session_info:
+          '{"account":{"id":"user-1","planType":"free"},"accessToken":"test-access-token","user":{"email":"user@example.com"}}',
+        force: 1,
+      }),
+    });
+  });
+
   it('logs masked upstream request and response when debug is enabled', async () => {
     process.env.UPSTREAM_BASE_URL = 'https://upstream.example.com';
     process.env.UPSTREAM_DEBUG = '1';

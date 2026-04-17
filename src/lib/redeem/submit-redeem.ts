@@ -446,6 +446,7 @@ export async function submitRedeem(
       upstreamCodeEncrypted: reservation.upstreamCodeEncrypted,
       sessionInfo,
       sessionInfoRaw: input.sessionInfo,
+      force: Boolean(input.force),
     });
   } catch (error) {
     upstreamResult = createUnexpectedActivateResult(error);

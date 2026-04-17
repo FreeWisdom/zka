@@ -49,7 +49,7 @@ code {
 .redeem-shell {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 48px 0 72px;
+  padding: 44px 0 72px;
 }
 
 .admin-shell {
@@ -61,15 +61,91 @@ code {
   gap: 26px;
 }
 
+.redeem-hero {
+  display: grid;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.redeem-hero-copy {
+  display: grid;
+  gap: 14px;
+  max-width: 760px;
+}
+
+.redeem-hero h1,
+.redeem-card-header h1,
+.redeem-card-header h2,
+.redeem-result-card h1,
+.redeem-side-card h2 {
+  margin: 0;
+  letter-spacing: -0.04em;
+}
+
+.redeem-hero h1 {
+  font-size: clamp(2.7rem, 6vw, 4.6rem);
+  line-height: 0.96;
+}
+
+.redeem-card-header h1,
+.redeem-card-header h2,
+.redeem-result-card h1,
+.redeem-side-card h2 {
+  font-size: clamp(1.7rem, 2.5vw, 2.7rem);
+  line-height: 1.02;
+}
+
+.redeem-hero p,
+.redeem-card-header p,
+.redeem-result-card p,
+.redeem-side-card p,
+.redeem-side-card li,
+.redeem-field-hint,
+.redeem-help-block,
+.redeem-privacy-note {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.redeem-hero p,
+.redeem-card-header p,
+.redeem-result-card p,
+.redeem-side-card p {
+  margin: 0;
+}
+
+.redeem-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.redeem-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 10px 14px;
+  border: 1px solid rgba(65, 57, 47, 0.12);
+  background: rgba(255, 252, 247, 0.72);
+  box-shadow: 0 10px 30px rgba(64, 46, 28, 0.08);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .redeem-layout {
   display: grid;
   gap: 24px;
-  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
   align-items: start;
 }
 
 .redeem-layout > * {
   min-width: 0;
+}
+
+.redeem-form-stack {
+  display: grid;
+  gap: 24px;
 }
 
 .redeem-card,
@@ -88,45 +164,27 @@ code {
   padding: 28px;
 }
 
+.redeem-stage-card {
+  display: grid;
+}
+
+.redeem-stage-card-disabled {
+  opacity: 0.88;
+}
+
 .redeem-side-panel {
   display: grid;
   gap: 18px;
+  position: sticky;
+  top: 24px;
 }
 
 .redeem-side-card {
   padding: 22px;
 }
 
-.redeem-side-card ol {
-  margin: 14px 0 0;
-  padding-left: 20px;
-}
-
-.redeem-side-card li + li {
-  margin-top: 10px;
-}
-
-.redeem-card-header h1,
-.redeem-card-header h2,
-.redeem-result-card h1,
-.redeem-side-card h2 {
-  margin: 0;
-  font-size: clamp(1.8rem, 2vw, 2.6rem);
-  line-height: 1.05;
-}
-
-.redeem-card-header p,
-.redeem-result-card p,
-.redeem-side-card p,
-.redeem-side-card li {
-  color: var(--muted);
-  line-height: 1.7;
-}
-
-.redeem-card-header p,
-.redeem-result-card p,
-.redeem-side-card p {
-  margin: 0;
+.redeem-side-note-card h2 {
+  font-size: clamp(1.35rem, 1.9vw, 1.9rem);
 }
 
 .redeem-kicker {
@@ -149,6 +207,127 @@ code {
   background: currentColor;
 }
 
+.redeem-guide-list {
+  display: grid;
+  gap: 0;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.redeem-guide-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid rgba(65, 57, 47, 0.09);
+}
+
+.redeem-guide-item:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.redeem-guide-number {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: rgba(34, 29, 23, 0.96);
+  color: #fffaf4;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.redeem-guide-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.redeem-guide-copy strong {
+  font-size: 1.06rem;
+  line-height: 1.3;
+}
+
+.redeem-guide-copy span {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.redeem-guide-action {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  margin-top: 4px;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: rgba(34, 29, 23, 0.96);
+  color: #fffaf4;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.redeem-side-notes {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding-left: 18px;
+}
+
+.redeem-stage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.redeem-stage-title-wrap {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.redeem-stage-index {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: rgba(202, 93, 47, 0.12);
+  color: var(--accent-strong);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.redeem-card-header {
+  display: grid;
+  gap: 8px;
+}
+
+.redeem-stage-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.redeem-inline-link {
+  color: var(--accent-strong);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.redeem-inline-link:hover {
+  text-decoration: underline;
+}
+
 .redeem-field-group {
   display: grid;
   gap: 10px;
@@ -160,6 +339,39 @@ code {
   font-weight: 700;
 }
 
+.redeem-field-hint {
+  font-size: 0.92rem;
+}
+
+.redeem-checkbox {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 18px;
+  align-items: flex-start;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.redeem-checkbox input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.redeem-checkbox span {
+  display: grid;
+  gap: 6px;
+  line-height: 1.5;
+}
+
+.redeem-checkbox small {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
 .redeem-input,
 .redeem-textarea {
   width: 100%;
@@ -168,14 +380,26 @@ code {
   padding: 16px 18px;
   background: rgba(255, 255, 255, 0.78);
   color: var(--text);
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .redeem-input:focus,
 .redeem-textarea:focus {
   outline: none;
   border-color: rgba(202, 93, 47, 0.6);
+  box-shadow: 0 0 0 4px rgba(202, 93, 47, 0.08);
   transform: translateY(-1px);
+}
+
+.redeem-textarea:disabled,
+.redeem-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  background: rgba(245, 240, 232, 0.78);
 }
 
 .redeem-code-check-row {
@@ -191,6 +415,7 @@ code {
 
 .redeem-code-check-button {
   flex: 0 0 auto;
+  min-width: 132px;
 }
 
 .redeem-textarea {
@@ -198,10 +423,18 @@ code {
   min-height: 180px;
 }
 
-.redeem-actions {
+.redeem-actions,
+.redeem-inline-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.redeem-actions {
+  margin-top: 20px;
+}
+
+.redeem-inline-actions {
   margin-top: 20px;
 }
 
@@ -214,28 +447,122 @@ code {
   border-radius: 999px;
   padding: 14px 22px;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  box-shadow: 0 14px 30px rgba(165, 63, 25, 0.18);
   color: #fff6ee;
   cursor: pointer;
   font-weight: 700;
   text-decoration: none;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.redeem-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(165, 63, 25, 0.22);
 }
 
 .redeem-button:disabled {
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.65;
+  box-shadow: none;
 }
 
 .redeem-button-secondary {
   background: rgba(255, 255, 255, 0.72);
+  box-shadow: none;
   color: var(--text);
   border: 1px solid rgba(65, 57, 47, 0.18);
 }
 
+.redeem-button-ghost {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  border: 1px dashed rgba(65, 57, 47, 0.26);
+}
+
+.redeem-inline-button {
+  min-width: 110px;
+  padding: 10px 16px;
+}
+
+.redeem-info-grid,
+.redeem-status-grid,
+.redeem-session-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.redeem-info-grid {
+  margin-top: 20px;
+}
+
+.redeem-info-grid,
+.redeem-status-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.redeem-session-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.redeem-readonly-field,
+.redeem-status-meta-item,
+.redeem-session-item {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(65, 57, 47, 0.1);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.redeem-readonly-label,
+.redeem-status-meta-item span,
+.redeem-session-item span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.redeem-readonly-value,
+.redeem-status-meta-item strong,
+.redeem-session-item strong {
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
 .redeem-status-card {
   display: grid;
-  gap: 8px;
-  margin-top: 20px;
-  padding: 18px 20px;
+  gap: 16px;
+  margin-top: 22px;
+  padding: 20px 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.74) 0%, rgba(255, 252, 247, 0.82) 100%);
+}
+
+.redeem-status-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.redeem-status-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.redeem-status-copy strong {
+  font-size: 1.34rem;
+  line-height: 1.1;
+}
+
+.redeem-status-copy span {
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .redeem-status-card,
@@ -253,6 +580,7 @@ code {
   margin: 18px 0 0;
   font-size: 0.95rem;
   font-weight: 600;
+  line-height: 1.55;
 }
 
 .redeem-error {
@@ -280,9 +608,77 @@ code {
   align-items: center;
   border-radius: 999px;
   padding: 8px 14px;
+  font-weight: 700;
+}
+
+.redeem-pill-accent {
+  background: rgba(202, 93, 47, 0.14);
+  color: var(--accent-strong);
+}
+
+.redeem-pill-success {
   background: rgba(20, 108, 67, 0.12);
   color: var(--success);
+}
+
+.redeem-pill-warning {
+  background: rgba(181, 107, 15, 0.14);
+  color: var(--warning);
+}
+
+.redeem-pill-danger {
+  background: rgba(160, 33, 44, 0.12);
+  color: var(--danger);
+}
+
+.redeem-pill-neutral {
+  background: rgba(65, 57, 47, 0.08);
+  color: var(--text);
+}
+
+.redeem-session-preview {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid rgba(65, 57, 47, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.redeem-session-preview-error {
+  border-color: rgba(160, 33, 44, 0.22);
+  background: rgba(160, 33, 44, 0.04);
+}
+
+.redeem-help-details {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(65, 57, 47, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.54);
+}
+
+.redeem-help-details summary {
+  cursor: pointer;
   font-weight: 700;
+}
+
+.redeem-help-block {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.redeem-help-block p {
+  margin: 0;
+}
+
+.redeem-privacy-note {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(34, 29, 23, 0.05);
 }
 
 .redeem-result-detail {
@@ -918,9 +1314,34 @@ code {
 }
 
 @media (max-width: 900px) {
+  .redeem-hero {
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+
   .redeem-layout {
     grid-template-columns: 1fr;
     gap: 18px;
+  }
+
+  .redeem-side-panel {
+    position: static;
+    gap: 14px;
+  }
+
+  .redeem-stage-header,
+  .redeem-status-head {
+    flex-direction: column;
+  }
+
+  .redeem-stage-meta {
+    justify-content: flex-start;
+  }
+
+  .redeem-info-grid,
+  .redeem-status-grid,
+  .redeem-session-grid {
+    grid-template-columns: 1fr;
   }
 
   .redeem-code-check-row {
@@ -929,10 +1350,6 @@ code {
 
   .redeem-code-check-button {
     width: 100%;
-  }
-
-  .redeem-side-panel {
-    gap: 14px;
   }
 
   .redeem-side-card {
@@ -954,7 +1371,8 @@ code {
   .redeem-card-header p,
   .redeem-result-card p,
   .redeem-side-card p,
-  .redeem-side-card li {
+  .redeem-side-card li,
+  .redeem-hero p {
     line-height: 1.55;
   }
 
@@ -963,11 +1381,13 @@ code {
   }
 
   .redeem-layout .redeem-actions,
+  .redeem-layout .redeem-inline-actions,
   .redeem-result-card .redeem-actions {
     gap: 10px;
   }
 
   .redeem-layout .redeem-actions > *,
+  .redeem-layout .redeem-inline-actions > *,
   .redeem-result-card .redeem-actions > * {
     width: 100%;
     min-width: 0;
@@ -1079,6 +1499,23 @@ code {
     padding: 18px 0 36px;
   }
 
+  .redeem-hero {
+    margin-bottom: 18px;
+  }
+
+  .redeem-hero h1 {
+    font-size: clamp(2.1rem, 13vw, 3rem);
+  }
+
+  .redeem-hero-badges {
+    gap: 8px;
+  }
+
+  .redeem-hero-badge {
+    padding: 9px 12px;
+    font-size: 0.84rem;
+  }
+
   .redeem-card,
   .redeem-result-card,
   .redeem-side-card {
@@ -1109,16 +1546,59 @@ code {
     margin-top: 16px;
   }
 
+  .redeem-checkbox {
+    gap: 10px;
+    margin-top: 16px;
+  }
+
   .redeem-input,
   .redeem-textarea {
     border-radius: 16px;
     padding: 14px 15px;
   }
 
+  .redeem-stage-index {
+    padding: 6px 11px;
+    font-size: 0.76rem;
+  }
+
+  .redeem-guide-item {
+    gap: 12px;
+    padding: 14px 0;
+  }
+
+  .redeem-guide-number {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    font-size: 0.88rem;
+  }
+
+  .redeem-info-grid {
+    margin-top: 16px;
+  }
+
+  .redeem-readonly-field,
+  .redeem-status-meta-item,
+  .redeem-session-item {
+    padding: 12px 13px;
+    border-radius: 16px;
+  }
+
   .redeem-status-card {
-    gap: 7px;
+    gap: 12px;
     margin-top: 16px;
     padding: 14px 15px;
+  }
+
+  .redeem-status-copy strong {
+    font-size: 1.18rem;
+  }
+
+  .redeem-help-details,
+  .redeem-session-preview,
+  .redeem-privacy-note {
+    padding: 13px 14px;
   }
 
   .redeem-feedback {

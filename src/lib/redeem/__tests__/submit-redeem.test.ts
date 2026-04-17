@@ -179,6 +179,22 @@ describe('submitRedeem', () => {
     });
   });
 
+  it('passes the force flag to upstream activation when forced recharge is selected', async () => {
+    const activateSpy = vi.spyOn(upstreamAdapter, 'activateUpstreamCode');
+
+    await submitRedeem({
+      code: 'ZKA-VALID-0001',
+      sessionInfo: createSessionInfo(),
+      force: true,
+    });
+
+    expect(activateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        force: true,
+      }),
+    );
+  });
+
   it('reuses the same in-flight request for concurrent duplicate submits', async () => {
     let resolveActivate: ((value: NormalizedUpstreamResult) => void) | undefined;
     const activatePromise = new Promise<NormalizedUpstreamResult>((resolve) => {
@@ -233,6 +249,7 @@ describe('submitRedeem', () => {
         body: JSON.stringify({
           code: 'ZKA-VALID-0001',
           sessionInfo: createSessionInfo(),
+          force: true,
         }),
       }),
     );
