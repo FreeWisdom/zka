@@ -526,7 +526,7 @@ export function RedeemForm() {
           />
           <span>
             放弃剩余会员时间，强制充值
-            <small>仅在你确认目标账号已有会员且需要覆盖充值时再勾选，提交后会向上游发送 `force: 1`。</small>
+            <small>仅在你确认目标账号已有会员且需要覆盖充值时再勾选。</small>
           </span>
         </label>
 

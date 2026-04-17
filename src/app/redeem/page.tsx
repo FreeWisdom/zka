@@ -59,12 +59,6 @@ export default function RedeemPage() {
             先验证卡密，再提交 Session 信息。页面会在提交前给出账号和状态提示，服务端只保存脱敏摘要与哈希，不保留完整明文。
           </p>
         </div>
-
-        <div className="redeem-hero-badges" aria-label="兑换特点">
-          <span className="redeem-hero-badge">两步完成</span>
-          <span className="redeem-hero-badge">仅支持 Free Plan</span>
-          <span className="redeem-hero-badge">结果可追踪</span>
-        </div>
       </section>
 
       <section className="redeem-layout">
