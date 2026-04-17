@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type LookupState = {
   code: string;
@@ -182,7 +182,7 @@ export function RedeemForm() {
   const [lookupFeedback, setLookupFeedback] = useState<FeedbackState | null>(null);
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const sessionPreview = analyzeSessionDraft(sessionInfo);
   const lookupTone = getLookupTone(lookupState);
@@ -267,6 +267,10 @@ export function RedeemForm() {
   }
 
   async function submitRequest() {
+    if (isSubmitting) {
+      return;
+    }
+
     const normalizedCode = normalizeCodeInput(code);
 
     setSubmitErrorMessage(null);
@@ -293,6 +297,8 @@ export function RedeemForm() {
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
       const response = await fetch('/api/redeem/submit', {
         method: 'POST',
@@ -315,6 +321,8 @@ export function RedeemForm() {
       router.push(`/redeem/result/${payload.data.requestNo}`);
     } catch {
       setSubmitErrorMessage('兑换提交失败，请稍后重试。');
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -338,7 +346,7 @@ export function RedeemForm() {
               <button
                 className="redeem-button redeem-button-secondary redeem-inline-button"
                 aria-busy={isChecking}
-                disabled={isChecking || isPending}
+                disabled={isChecking || isSubmitting}
                 onClick={handleCheckCode}
                 type="button"
               >
@@ -367,7 +375,7 @@ export function RedeemForm() {
             <button
               className="redeem-button redeem-code-check-button"
               aria-busy={isChecking}
-              disabled={isChecking || isPending}
+              disabled={isChecking || isSubmitting}
               onClick={handleCheckCode}
               type="button"
             >
@@ -512,7 +520,7 @@ export function RedeemForm() {
             id="session-info"
             ref={sessionTextareaRef}
             className="redeem-textarea"
-            disabled={!lookupState?.canSubmit}
+            disabled={!lookupState?.canSubmit || isSubmitting}
             placeholder='请粘贴完整 JSON，例如 {"account":{"planType":"free"}}'
             rows={8}
             value={sessionInfo}
@@ -526,7 +534,7 @@ export function RedeemForm() {
         <label className="redeem-checkbox">
           <input
             checked={forceRedeem}
-            disabled={!lookupState?.canSubmit || isChecking || isPending}
+            disabled={!lookupState?.canSubmit || isChecking || isSubmitting}
             onChange={(event) => setForceRedeem(event.target.checked)}
             type="checkbox"
           />
@@ -587,12 +595,15 @@ export function RedeemForm() {
         <div className="redeem-actions">
           <button
             className="redeem-button"
-            aria-busy={isPending}
-            disabled={isChecking || isPending || !canSubmitRequest}
-            onClick={() => startTransition(() => void submitRequest())}
+            aria-busy={isSubmitting}
+            disabled={isChecking || isSubmitting || !canSubmitRequest}
+            onClick={() => void submitRequest()}
             type="button"
           >
-            {isPending ? '提交中...' : '提交充值'}
+            {isSubmitting ? (
+              <span aria-hidden="true" className="redeem-button-loading-indicator" />
+            ) : null}
+            {isSubmitting ? '提交中...' : '提交充值'}
           </button>
         </div>
       </section>
