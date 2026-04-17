@@ -531,7 +531,7 @@ export async function activateUpstreamCode(input: {
     return createBoundFinalResult(input.sessionInfo.errorMessage);
   }
 
-  if (input.sessionInfo.planType !== 'free') {
+  if (!input.force && input.sessionInfo.planType !== 'free') {
     return createBoundFinalResult(
       `该账号当前 plan 为 ${input.sessionInfo.planType}，无法进行充值`,
     );

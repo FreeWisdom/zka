@@ -114,7 +114,7 @@ describe('submitRedeem', () => {
     expect(redeemRequest?.session_info_masked).toContain('us***@example.com');
   });
 
-  it('returns failed_final for a non-free plan without consuming the upstream code', async () => {
+  it('returns failed_final for a non-free plan when force is not enabled', async () => {
     const result = await submitRedeem({
       code: 'ZKA-VALID-0001',
       sessionInfo: createSessionInfo('plus'),
@@ -149,6 +149,20 @@ describe('submitRedeem', () => {
     expect(state).toMatchObject({
       redeem_status: 'failed',
       upstream_status: 'bound',
+    });
+  });
+
+  it('allows forced recharge for a non-free plan', async () => {
+    const result = await submitRedeem({
+      code: 'ZKA-VALID-0001',
+      sessionInfo: createSessionInfo('plus'),
+      force: true,
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      retryable: false,
+      message: '兑换成功',
     });
   });
 

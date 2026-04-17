@@ -189,11 +189,12 @@ export function RedeemForm() {
   const isSessionPlanFree =
     Boolean(sessionPreview?.valid) &&
     sessionPreview?.planType?.toLowerCase() === 'free';
+  const isSessionPlanAllowed = forceRedeem || isSessionPlanFree;
   const canSubmitRequest =
     Boolean(lookupState?.canSubmit) &&
     sessionInfo.trim().length > 0 &&
     Boolean(sessionPreview?.valid) &&
-    isSessionPlanFree;
+    isSessionPlanAllowed;
 
   useEffect(() => {
     if (lookupState?.canSubmit) {
@@ -285,7 +286,7 @@ export function RedeemForm() {
       return;
     }
 
-    if (!isSessionPlanFree) {
+    if (!forceRedeem && !isSessionPlanFree) {
       setSubmitErrorMessage(
         `当前账号 plan 为 ${sessionPreview.planType ?? '未知'}，仅支持 free plan 提交。`,
       );
@@ -441,7 +442,7 @@ export function RedeemForm() {
             <span className="redeem-stage-index">第二步</span>
             <div className="redeem-card-header">
               <h2>提交 Session 信息</h2>
-              <p>仅支持当前为 free plan 的账号。提交前会先做本地检查，减少无效请求。</p>
+              <p>提交前会先做本地检查。默认建议使用 free plan；如需覆盖已有会员，可勾选强制充值。</p>
             </div>
           </div>
 
@@ -513,7 +514,7 @@ export function RedeemForm() {
             onChange={(event) => setSessionInfo(event.target.value)}
           />
           <span className="redeem-field-hint">
-            只接受完整 JSON。若当前账号不是 free plan，服务端会拒绝提交。
+            只接受完整 JSON。默认建议使用 free plan；如需覆盖已有会员，可勾选强制充值后再提交。
           </span>
         </div>
 
@@ -556,13 +557,6 @@ export function RedeemForm() {
                 {sessionPreview.errorMessage}
               </p>
             )}
-
-            {sessionPreview.valid && !isSessionPlanFree ? (
-              <p className="redeem-feedback redeem-warning" role="status">
-                当前账号 plan 为 {sessionPreview.planType}，不符合充值要求，请切换为 free
-                plan 的账号后再提交。
-              </p>
-            ) : null}
           </div>
         ) : null}
 
@@ -572,7 +566,6 @@ export function RedeemForm() {
             <p>1. 在当前浏览器登录目标 ChatGPT 账号。</p>
             <p>2. 打开上方 AuthSession 页面，等待页面返回 JSON。</p>
             <p>3. 复制完整响应内容，原样粘贴到输入框中。</p>
-            <p>4. 确认 `account.planType` 为 `free` 后再提交。</p>
           </div>
         </details>
 

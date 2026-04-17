@@ -128,7 +128,7 @@ describe('upstream adapter requests', () => {
     });
   });
 
-  it('posts force=1 when forced activation is requested', async () => {
+  it('posts force=1 when forced activation is requested for a non-free plan', async () => {
     process.env.UPSTREAM_BASE_URL = 'https://upstream.example.com';
 
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
@@ -148,12 +148,12 @@ describe('upstream adapter requests', () => {
     await activateUpstreamCode({
       upstreamCodeEncrypted: encodeUpstreamCode('REAL-UPSTREAM-0001'),
       sessionInfo: {
-        planType: 'free',
+        planType: 'plus',
         accountId: 'user-1',
         email: 'user@example.com',
       },
       sessionInfoRaw:
-        '{"account":{"id":"user-1","planType":"free"},"accessToken":"test-access-token","user":{"email":"user@example.com"}}',
+        '{"account":{"id":"user-1","planType":"plus"},"accessToken":"test-access-token","user":{"email":"user@example.com"}}',
       force: true,
     });
 
@@ -168,7 +168,7 @@ describe('upstream adapter requests', () => {
       body: JSON.stringify({
         cdkey: 'REAL-UPSTREAM-0001',
         session_info:
-          '{"account":{"id":"user-1","planType":"free"},"accessToken":"test-access-token","user":{"email":"user@example.com"}}',
+          '{"account":{"id":"user-1","planType":"plus"},"accessToken":"test-access-token","user":{"email":"user@example.com"}}',
         force: 1,
       }),
     });
