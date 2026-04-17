@@ -139,6 +139,7 @@ export function InventoryManager({
   );
   const [submitting, setSubmitting] = useState(false);
   const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [loadingBatchNo, setLoadingBatchNo] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [inventoryActionError, setInventoryActionError] = useState('');
@@ -191,6 +192,11 @@ export function InventoryManager({
     : [];
 
   async function handleBatchSelect(batchNo: string) {
+    if (inventoryLoading || batchNo === selectedBatchNo) {
+      return;
+    }
+
+    setLoadingBatchNo(batchNo);
     setInventoryLoading(true);
     setErrorMessage('');
     setInventoryActionError('');
@@ -206,6 +212,7 @@ export function InventoryManager({
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '切换批次失败');
     } finally {
+      setLoadingBatchNo(null);
       setInventoryLoading(false);
     }
   }
@@ -592,15 +599,21 @@ export function InventoryManager({
             {batches.length ? (
               batches.map((batch) => {
                 const isActive = batch.batchNo === selectedBatchNo;
+                const isLoading = batch.batchNo === loadingBatchNo;
 
                 return (
                   <button
-                    className={`admin-batch-item${isActive ? ' admin-batch-item-active' : ''}`}
+                    aria-busy={isLoading}
+                    className={`admin-batch-item${isActive ? ' admin-batch-item-active' : ''}${
+                      isLoading ? ' admin-batch-item-loading' : ''
+                    }`}
+                    disabled={inventoryLoading}
                     key={batch.batchNo}
                     type="button"
                     onClick={() => void handleBatchSelect(batch.batchNo)}
                   >
                     <strong>{batch.batchNo}</strong>
+                    {isLoading ? <span className="admin-batch-item-loading-text">加载中...</span> : null}
                     <span>{batch.productName}</span>
                     <span>
                       数量 {batch.quantity} / 已发码 {batch.generatedCount} / 库存中 {batch.inStockCount}

@@ -337,10 +337,14 @@ export function RedeemForm() {
             {lookupState ? (
               <button
                 className="redeem-button redeem-button-secondary redeem-inline-button"
+                aria-busy={isChecking}
                 disabled={isChecking || isPending}
                 onClick={handleCheckCode}
                 type="button"
               >
+                {isChecking ? (
+                  <span aria-hidden="true" className="redeem-button-loading-indicator" />
+                ) : null}
                 重新查询
               </button>
             ) : null}
@@ -362,6 +366,7 @@ export function RedeemForm() {
             />
             <button
               className="redeem-button redeem-code-check-button"
+              aria-busy={isChecking}
               disabled={isChecking || isPending}
               onClick={handleCheckCode}
               type="button"
@@ -582,6 +587,7 @@ export function RedeemForm() {
         <div className="redeem-actions">
           <button
             className="redeem-button"
+            aria-busy={isPending}
             disabled={isChecking || isPending || !canSubmitRequest}
             onClick={() => startTransition(() => void submitRequest())}
             type="button"
